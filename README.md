@@ -20,6 +20,14 @@
 | 本地 API 网页版 | 希望在浏览器中使用，并添加本地文献的用户 | 在电脑上启动网页，填写所选模型服务的配置 |
 | 完整 Agent／研究版 | 使用 Codex、Cursor 等 Agent 工作平台的用户 | 将项目作为 Agent 或 Skill 加载 |
 
+## 下载 V1.0
+
+你可以前往 [V1.0 Release 页面](https://github.com/Hesterlnn/han-qi-agent/releases/tag/v1.0) 查看本次发布内容，也可以直接下载适合自己的版本：
+
+- [普通聊天框版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-chat-pack-v1.0.zip)
+- [本地 API 网页版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-api-chat-v1.0.zip)
+- [完整 Agent／研究版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-agent-public-v1.0.zip)
+
 完整的版本选择、安装步骤和使用示例请阅读：
 
 - [使用说明（Markdown）](使用说明.md)
@@ -35,4 +43,3 @@
 ## 许可证
 
 本项目采用 [MIT License](LICENSE)。
-
