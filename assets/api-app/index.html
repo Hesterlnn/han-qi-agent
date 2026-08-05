@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>韩琦智能体</title>
+  <style>
+    :root { color-scheme: light; --ink:#27221c; --paper:#f3ecdf; --card:#fffaf1; --red:#8d3028; --line:#d4c4ad; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--ink); background:linear-gradient(135deg,#e5d7c3,#f7f1e7 55%,#dfcfb7); font:16px/1.65 system-ui,"Microsoft YaHei",sans-serif; }
+    main { width:min(980px,100%); min-height:100vh; margin:auto; padding:28px 18px; display:grid; grid-template-rows:auto auto auto 1fr auto; gap:14px; }
+    header { display:flex; align-items:end; justify-content:space-between; gap:20px; min-width:0; }
+    h1 { flex:0 0 auto; margin:0; font:700 clamp(28px,5vw,48px)/1.1 Georgia,"STSong",serif; letter-spacing:.08em; white-space:nowrap; word-break:keep-all; }
+    #status { min-width:0; overflow:hidden; font-size:13px; color:#6f6253; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
+    .controls,.library,.composer,.chat { background:rgba(255,250,241,.92); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 30px rgba(73,54,34,.08); }
+    .controls { padding:12px; display:flex; flex-wrap:wrap; gap:10px; }
+    .library { padding:12px; }
+    .library-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+    .library-row strong { margin-right:auto; }
+    .library-status,.library-hint { margin:7px 0 0; color:#6f6253; font-size:13px; }
+    .research-note { flex-basis:100%; margin:0; padding:8px 10px; border-radius:9px; background:#f5e8d5; color:#6f4a36; font-size:13px; line-height:1.55; }
+    .research-note[hidden] { display:none; }
+    label { display:flex; gap:8px; align-items:center; font-size:14px; }
+    select,textarea,button,.file-button { font:inherit; }
+    select { border:1px solid var(--line); border-radius:9px; padding:7px 10px; background:white; color:var(--ink); }
+    .chat { padding:18px; overflow:auto; min-height:420px; max-height:62vh; }
+    .empty { color:#796c5d; text-align:center; padding:90px 10px; }
+    .message { margin:0 0 16px; display:flex; }
+    .message.user { justify-content:flex-end; }
+    .bubble { max-width:min(760px,88%); white-space:pre-wrap; padding:11px 14px; border-radius:14px; background:#eee3d3; }
+    .assistant .bubble { background:white; border-left:4px solid var(--red); }
+    .user .bubble { background:#8d3028; color:white; }
+    .retrieval { max-width:min(760px,88%); margin:6px 0 0; color:#6f6253; font-size:12px; }
+    .retrieval a { color:#71342f; }
+    .composer { padding:12px; display:grid; grid-template-columns:1fr auto; gap:10px; }
+    textarea { width:100%; min-height:76px; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:10px; background:white; color:var(--ink); }
+    button { border:0; border-radius:10px; padding:10px 20px; color:white; background:var(--red); cursor:pointer; }
+    button:disabled { cursor:wait; opacity:.55; }
+    button.secondary,.file-button { border:1px solid var(--line); border-radius:9px; padding:7px 11px; color:var(--ink); background:white; cursor:pointer; }
+    .file-button input { display:none; }
+    .check input { accent-color:var(--red); }
+    @media (max-width:640px) { header { align-items:start; flex-direction:column; } #status{width:100%;text-align:left} .composer{grid-template-columns:1fr} .chat{min-height:52vh} }
+  </style>
+</head>
+<body>
+<main>
+  <header><h1>韩琦智能体</h1><div id="status">正在读取配置……</div></header>
+  <section class="controls">
+    <label>互动模式<select id="mode"><option>自动</option><option>闲谈</option><option>情境</option><option>任事</option><option>考据</option></select></label>
+    <label>世界设定<select id="world"><option>自动</option><option>历史封闭</option><option>古今会谈</option><option>能力迁移</option></select></label>
+    <label class="check"><input id="use-corpus" type="checkbox" checked>使用本地文献库</label>
+    <label class="check" id="web-search-label"><input id="web-search" type="checkbox">联网检索</label>
+    <button id="clear" type="button">清空会话</button>
+    <p class="research-note" id="research-note" hidden>考据模式会在启用时检索下方的本地文献库。联网检索默认关闭，打开“联网检索”开关后持续生效，直到手动关闭或刷新页面。</p>
+  </section>
+  <section class="library">
+    <div class="library-row">
+      <strong>本地文献库</strong>
+      <label class="file-button">添加文件<input id="corpus-files" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.docx,.pdf"></label>
+      <label class="file-button">添加文件夹<input id="corpus-folder" type="file" multiple webkitdirectory directory></label>
+      <button class="secondary" id="clear-corpus" type="button">清空文献库</button>
+    </div>
+    <p class="library-status" id="corpus-status">正在读取文献库状态……</p>
+    <p class="library-hint">支持TXT、Markdown、CSV、JSON、HTML、DOCX和PDF。文献保存在本机；使用文献库时，只有与问题相关的节选会发送给当前模型。</p>
+  </section>
+  <section class="chat" id="chat"><div class="empty">可以闲谈，可以设一段情境，也可以把一件事交给他。</div></section>
+  <form class="composer" id="form">
+    <textarea id="input" placeholder="例如：项目延期，人人都说不是自己的责任。请你来处理。" required></textarea>
+    <button id="send" type="submit">发送</button>
+  </form>
+</main>
+<script>
+  const messages = [];
+  const chat = document.querySelector('#chat');
+  const input = document.querySelector('#input');
+  const send = document.querySelector('#send');
+  const mode = document.querySelector('#mode');
+  const world = document.querySelector('#world');
+  const useCorpus = document.querySelector('#use-corpus');
+  const webSearch = document.querySelector('#web-search');
+  const webSearchLabel = document.querySelector('#web-search-label');
+  const researchNote = document.querySelector('#research-note');
+  const corpusStatus = document.querySelector('#corpus-status');
+  const corpusFiles = document.querySelector('#corpus-files');
+  const corpusFolder = document.querySelector('#corpus-folder');
+  const clearCorpus = document.querySelector('#clear-corpus');
+
+  function syncResearchNote() { researchNote.hidden = mode.value !== '考据'; }
+  mode.addEventListener('change', syncResearchNote);
+  syncResearchNote();
+
+  function retrievalSummary(retrieval) {
+    const parts = [];
+    if (retrieval?.local?.length) {
+      const unique = [...new Map(retrieval.local.map(item => [`${item.path}|${item.locator}`, item])).values()];
+      parts.push(`本地文献：${unique.map(item => `${item.path}（${item.locator}）`).join('；')}`);
+    }
+    return {parts, web: retrieval?.web || []};
+  }
+
+  function render() {
+    chat.innerHTML = messages.length ? '' : '<div class="empty">可以闲谈，可以设一段情境，也可以把一件事交给他。</div>';
+    messages.forEach(message => {
+      const row = document.createElement('div');
+      row.className = `message ${message.role}`;
+      const wrapper = document.createElement('div');
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = message.content;
+      wrapper.appendChild(bubble);
+      const summary = retrievalSummary(message.retrieval);
+      if (summary.parts.length || summary.web.length) {
+        const meta = document.createElement('div');
+        meta.className = 'retrieval';
+        if (summary.parts.length) meta.append(document.createTextNode(summary.parts.join('；')));
+        if (summary.web.length) {
+          if (summary.parts.length) meta.append(document.createElement('br'));
+          meta.append(document.createTextNode('联网来源：'));
+          summary.web.forEach((item, index) => {
+            if (index) meta.append(document.createTextNode('；'));
+            const link = document.createElement('a');
+            link.href = item.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = item.title || item.url;
+            meta.append(link);
+          });
+        }
+        wrapper.appendChild(meta);
+      }
+      row.appendChild(wrapper);
+      chat.appendChild(row);
+    });
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function showCorpusStatus(report, prefix='') {
+    const issues = report?.issues?.length || 0;
+    corpusStatus.textContent = `${prefix}${report?.file_count || 0} 个文件，${report?.extracted_files || 0} 个可读取${issues ? `，${issues} 个需要处理` : ''}`;
+    corpusStatus.title = issues ? report.issues.map(item => `${item.path}: ${item.error || item.status}`).join('\n') : '';
+  }
+
+  function readAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',', 2)[1] || '');
+      reader.onerror = () => reject(reader.error || new Error(`无法读取 ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function importCorpus(fileList) {
+    const selected = Array.from(fileList || []);
+    if (!selected.length) return;
+    corpusStatus.textContent = `正在添加并整理：${selected.length} 个文件……`;
+    corpusFiles.disabled = corpusFolder.disabled = clearCorpus.disabled = true;
+    try {
+      const files = [];
+      for (const file of selected) {
+        files.push({name:file.webkitRelativePath || file.name, data:await readAsBase64(file)});
+      }
+      const response = await fetch('/api/corpus/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({files})});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '导入失败');
+      showCorpusStatus(data, `已添加 ${data.added_files} 个文件。`);
+      useCorpus.checked = true;
+      if (data.skipped_files?.length) corpusStatus.title = `未支持并跳过：\n${data.skipped_files.join('\n')}\n${corpusStatus.title}`;
+    } catch (error) {
+      corpusStatus.textContent = `[导入错误] ${error.message}`;
+    } finally {
+      corpusFiles.value = corpusFolder.value = '';
+      corpusFiles.disabled = corpusFolder.disabled = clearCorpus.disabled = false;
+    }
+  }
+
+  corpusFiles.addEventListener('change', () => importCorpus(corpusFiles.files));
+  corpusFolder.addEventListener('change', () => importCorpus(corpusFolder.files));
+  clearCorpus.addEventListener('click', async () => {
+    if (!confirm('确定清空本机保存的全部文献吗？此操作不能撤销。')) return;
+    clearCorpus.disabled = true;
+    try {
+      const response = await fetch('/api/corpus/clear', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '清空失败');
+      showCorpusStatus(data, '已清空。');
+    } catch (error) {
+      corpusStatus.textContent = `[清空错误] ${error.message}`;
+    } finally { clearCorpus.disabled = false; }
+  });
+
+  document.querySelector('#clear').onclick = () => { messages.splice(0); render(); input.focus(); };
+  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.querySelector('#form').requestSubmit(); } });
+  document.querySelector('#form').onsubmit = async event => {
+    event.preventDefault(); const content=input.value.trim(); if (!content) return;
+    messages.push({role:'user',content}); input.value=''; render(); send.disabled=true; send.textContent='思量中…';
+    try {
+      const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,mode:mode.value,world:world.value,use_corpus:useCorpus.checked,web_search:webSearch.checked})});
+      const data=await response.json(); if (!response.ok) throw new Error(data.error || '请求失败');
+      messages.push({role:'assistant',content:data.content,retrieval:data.retrieval});
+    } catch (error) { messages.push({role:'assistant',content:`[连接错误] ${error.message}`}); }
+    finally { send.disabled=false; send.textContent='发送'; render(); input.focus(); }
+  };
+  fetch('/api/status').then(r=>r.json()).then(s=>{
+    const status=document.querySelector('#status');
+    const webText=s.web_search_configured?'联网检索可用':'联网检索未配置';
+    const text=`${s.provider} · ${s.model} · ${s.protocol} · API Key ${s.api_key_configured?'已配置':'未配置：'+s.api_key_env} · ${webText}`;
+    status.textContent=text; status.title=text;
+    webSearch.disabled=!s.web_search_configured;
+    webSearchLabel.title=s.web_search_configured?'默认关闭；打开后持续联网，直到手动关闭或刷新页面':'请让安装包提供方或管理员配置联网检索';
+    showCorpusStatus(s.corpus || {});
+  }).catch(()=>{const status=document.querySelector('#status'); status.textContent='无法读取服务状态'; status.title=status.textContent; corpusStatus.textContent='无法读取文献库状态';});
+  input.focus();
+</script>
+</body>
+</html>

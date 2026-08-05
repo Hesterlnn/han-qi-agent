@@ -1,0 +1,2 @@
+# Optional at runtime, required only when importing text-based PDF files.
+pypdf>=5,<7

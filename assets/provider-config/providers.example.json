@@ -1,0 +1,49 @@
+{
+  "active_provider": "deepseek",
+  "providers": {
+    "deepseek": {
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "model": "deepseek-v4-flash",
+      "protocol": "chat-completions",
+      "temperature": 0.8
+    },
+    "openai": {
+      "base_url": "https://api.openai.com/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "model": "gpt-5.6-terra",
+      "protocol": "responses",
+      "reasoning_effort": "medium"
+    },
+    "qwen-bailian": {
+      "base_url": "REPLACE_WITH_CURRENT_DASHSCOPE_COMPATIBLE_BASE_URL",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "model": "qwen3.7-plus",
+      "protocol": "chat-completions",
+      "temperature": 0.8
+    },
+    "zhipu": {
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "api_key_env": "ZHIPU_API_KEY",
+      "model": "glm-5",
+      "protocol": "chat-completions",
+      "temperature": 0.8
+    },
+    "volcengine-ark": {
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+      "api_key_env": "ARK_API_KEY",
+      "model": "doubao-seed-2-0-lite-260215",
+      "protocol": "chat-completions",
+      "temperature": 0.8
+    },
+    "custom": {
+      "base_url": "https://provider.example/v1",
+      "api_key_env": "HAN_QI_API_KEY",
+      "model": "provider-model-name",
+      "protocol": "chat-completions",
+      "temperature": 0.8
+    }
+  },
+  "system_prompt_file": "../knowledge-base/系统提示词.md",
+  "knowledge_file": "../universal-chat/韩琦智能体-通用知识包.md"
+}

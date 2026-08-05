@@ -1,0 +1,8 @@
+.env
+*.pyc
+__pycache__/
+assets/api-app/data/
+assets/provider-config/providers.local.json
+.DS_Store
+Thumbs.db
+

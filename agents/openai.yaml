@@ -1,0 +1,4 @@
+interface:
+  display_name: "韩琦智能体"
+  short_description: "提供韩琦同人对话、情境推演、现代任事与指定文献库研究能力"
+  default_prompt: "使用 $han-qi-agent，让韩琦与我自然对话；需要时可进入情境或把一件事交给他处理。"
