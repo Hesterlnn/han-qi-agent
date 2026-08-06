@@ -88,7 +88,22 @@ def load_config(path: Path) -> dict[str, Any]:
     }
 
 
-def web_search_settings() -> dict[str, Any]:
+def supports_native_web_search(config: dict[str, Any]) -> bool:
+    """Return whether the active model provider can run web search itself."""
+    provider = config["provider"]
+    if provider.get("native_web_search") is not None:
+        return provider.get("native_web_search") is True and provider.get("protocol") == "responses"
+    return (
+        config.get("name") == "deepseek"
+        and provider.get("protocol") == "responses"
+        and provider.get("model") == "deepseek-v4-flash"
+    )
+
+
+def web_search_settings(config: dict[str, Any]) -> dict[str, Any]:
+    provider = config["provider"]
+    if supports_native_web_search(config) and os.environ.get(provider["api_key_env"], "").strip():
+        return {"provider": "native", "api_key": "", "configured": True}
     generic_key = os.environ.get("WEB_SEARCH_API_KEY", "").strip()
     if generic_key:
         return {"provider": "tavily", "api_key": generic_key, "configured": True}
@@ -101,10 +116,9 @@ def web_search_settings() -> dict[str, Any]:
     return {"provider": "", "api_key": "", "configured": False}
 
 
-def search_web(query: str, max_results: int = 5) -> list[dict[str, str]]:
-    settings = web_search_settings()
+def search_web(settings: dict[str, Any], query: str, max_results: int = 5) -> list[dict[str, str]]:
     if not settings["configured"]:
-        raise ValueError("联网检索尚未配置。请在 .env 中填写 WEB_SEARCH_API_KEY，然后重新启动服务。")
+        raise ValueError("当前模型没有可用的联网检索能力。请检查模型配置或联系安装包提供方。")
     provider = settings["provider"]
     api_key = settings["api_key"]
     if provider == "tavily":
@@ -198,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/status":
             provider = self.server.config["provider"]
             key_present = bool(os.environ.get(provider["api_key_env"]))
-            search_settings = web_search_settings()
+            search_settings = web_search_settings(self.server.config)
             self.send_json(
                 HTTPStatus.OK,
                 {
@@ -260,8 +274,24 @@ class Handler(BaseHTTPRequestHandler):
             web_requested = request_body.get("web_search", False) is True
             with self.server.corpus_lock:
                 local_results = search_index(self.server.corpus_root / "index", query, top=8) if use_corpus else []
-            web_results = search_web(query, max_results=5) if web_requested else []
-            answer = self.call_provider(cleaned, mode, world, local_results, web_results)
+            search_settings = web_search_settings(self.server.config)
+            if web_requested and not search_settings["configured"]:
+                raise ValueError("当前模型没有可用的联网检索能力。请检查模型配置或联系安装包提供方。")
+            native_web_search = web_requested and search_settings["provider"] == "native"
+            web_results = (
+                search_web(search_settings, query, max_results=5)
+                if web_requested and not native_web_search
+                else []
+            )
+            answer, native_sources = self.call_provider(
+                cleaned,
+                mode,
+                world,
+                local_results,
+                web_results,
+                native_web_search,
+            )
+            displayed_web_results = native_sources if native_web_search else web_results
             retrieval = {
                 "local": [
                     {
@@ -271,7 +301,7 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     for item in local_results
                 ],
-                "web": [{"title": item["title"], "url": item["url"]} for item in web_results],
+                "web": [{"title": item["title"], "url": item["url"]} for item in displayed_web_results],
             }
             self.send_json(HTTPStatus.OK, {"content": answer, "retrieval": retrieval})
         except ValueError as exc:
@@ -363,7 +393,8 @@ class Handler(BaseHTTPRequestHandler):
         world: str,
         local_results: list[dict],
         web_results: list[dict[str, str]],
-    ) -> str:
+        native_web_search: bool,
+    ) -> tuple[str, list[dict[str, str]]]:
         config = self.server.config
         provider = config["provider"]
         api_key = os.environ.get(provider["api_key_env"])
@@ -400,6 +431,11 @@ class Handler(BaseHTTPRequestHandler):
                     f"\n[WEB {index}] {item['title']}\nURL: {item['url']}\n{item['content']}\n"
                 )
             system += "</web_search>"
+        if native_web_search:
+            system += (
+                "\n\n用户已打开联网检索。必须使用本次请求提供的网页搜索工具后再回答；"
+                "采用网页信息时说明来源，并保留实际网址。"
+            )
         protocol = provider.get("protocol", "chat-completions")
         if protocol == "responses":
             payload: dict[str, Any] = {
@@ -410,6 +446,9 @@ class Handler(BaseHTTPRequestHandler):
             }
             if provider.get("reasoning_effort"):
                 payload["reasoning"] = {"effort": provider["reasoning_effort"]}
+            if native_web_search:
+                payload["tools"] = [{"type": "web_search"}]
+                payload["tool_choice"] = {"type": "web_search"}
             endpoint = f"{base_url}/responses"
         else:
             payload = {
@@ -435,17 +474,37 @@ class Handler(BaseHTTPRequestHandler):
             result = json.loads(response.read())
         if protocol == "responses":
             texts: list[str] = []
+            sources: list[dict[str, str]] = []
+            seen_urls: set[str] = set()
             for output in result.get("output", []):
                 if output.get("type") != "message":
                     continue
                 for content in output.get("content", []):
                     if content.get("type") == "output_text" and isinstance(content.get("text"), str):
                         texts.append(content["text"])
+                    for annotation in content.get("annotations") or []:
+                        if not isinstance(annotation, dict):
+                            continue
+                        citation = annotation.get("url_citation")
+                        if not isinstance(citation, dict):
+                            citation = annotation
+                        url = str(citation.get("url", "")).strip()
+                        if not url.startswith(("http://", "https://")) or url in seen_urls:
+                            continue
+                        seen_urls.add(url)
+                        sources.append({"title": str(citation.get("title", "")).strip() or url, "url": url})
             if texts:
-                return "\n".join(texts)
+                answer = "\n".join(texts)
+                if native_web_search and not sources:
+                    for match in re.findall(r"https?://[^\s<>\[\]{}()]+", answer):
+                        url = match.rstrip(".,;:!?，。；：！？'\"")
+                        if url not in seen_urls:
+                            seen_urls.add(url)
+                            sources.append({"title": url, "url": url})
+                return answer, sources
             raise ValueError("Responses API returned no output_text")
         try:
-            return result["choices"][0]["message"]["content"]
+            return result["choices"][0]["message"]["content"], []
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError("Provider returned an unsupported Chat Completions response") from exc
 
@@ -485,7 +544,7 @@ def main() -> int:
     url = f"http://{args.host}:{args.port}/"
     print(f"Han Qi chat running at {url}")
     print(f"Provider: {config['name']} / {config['provider']['model']}")
-    search_settings = web_search_settings()
+    search_settings = web_search_settings(config)
     print(f"Web search: {'ready' if search_settings['configured'] else 'disabled'}")
     print(f"Local corpus: {server.corpus_root}")
     if env_path.is_file():
