@@ -19,7 +19,7 @@ Use one OpenAI-compatible request layer and keep provider differences in configu
 
 Keep `base_url`, model, and capability flags editable. Read the key from an environment variable. A hosted browser application must never expose a shared provider key to clients.
 
-Model APIs and web search are separate capabilities. Keep web retrieval disabled unless the user explicitly enables it. The server chooses an available search adapter and exposes only a single boolean control to the browser. Keep adapter names and credentials out of the user interface, and never send search-service keys to the browser.
+Web retrieval remains disabled unless the user explicitly enables it. Prefer a provider's server-side web-search tool when the active API and model support one; for example, DeepSeek's Responses API can use `web_search` with the existing `DEEPSEEK_API_KEY`. Otherwise the server may use an installed external search adapter. Expose only a single boolean control to the browser, keep adapter details and credentials out of the user interface, and never send any provider or search-service key to the browser.
 
 ## Provider families
 
