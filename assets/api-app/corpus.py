@@ -208,6 +208,17 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
         "file_count": len(manifest),
         "extracted_files": sum(item["status"] == "extracted" for item in manifest),
         "chunk_count": len(all_chunks),
+        "files": [
+            {
+                "path": item["path"],
+                "extension": item["extension"],
+                "size": item["size"],
+                "status": item["status"],
+                "chunk_count": item["chunk_count"],
+                "error": item["error"],
+            }
+            for item in manifest
+        ],
         "issues": [
             {"path": item["path"], "status": item["status"], "error": item["error"]}
             for item in manifest
@@ -221,14 +232,39 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
 
 
 def index_status(index_dir: Path) -> dict:
+    empty = {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "files": [], "issues": []}
     report = index_dir / "report.json"
     if not report.is_file():
-        return {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "issues": []}
+        return empty
     try:
         value = json.loads(report.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "issues": []}
-    return value if isinstance(value, dict) else {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "issues": []}
+        return empty
+    if not isinstance(value, dict):
+        return empty
+    if not isinstance(value.get("files"), list):
+        files: list[dict] = []
+        manifest_path = index_dir / "manifest.jsonl"
+        if manifest_path.is_file():
+            try:
+                with manifest_path.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        item = json.loads(line)
+                        if isinstance(item, dict) and isinstance(item.get("path"), str):
+                            files.append(
+                                {
+                                    "path": item["path"],
+                                    "extension": item.get("extension", ""),
+                                    "size": item.get("size", 0),
+                                    "status": item.get("status", "unknown"),
+                                    "chunk_count": item.get("chunk_count", 0),
+                                    "error": item.get("error"),
+                                }
+                            )
+            except (OSError, json.JSONDecodeError):
+                files = []
+        value["files"] = files
+    return value
 
 
 def tokenize(text: str) -> list[str]:

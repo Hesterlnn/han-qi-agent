@@ -53,6 +53,11 @@ class NativeWebSearchTests(unittest.TestCase):
     def test_native_web_search_is_sent_and_citations_are_returned(self):
         response_payload = {
             "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "先核对官方资料，再整理结论。"}],
+                    "content": [{"type": "reasoning_text", "text": "不应展示的原始推理"}],
+                },
                 {"type": "web_search_call", "status": "completed"},
                 {
                     "type": "message",
@@ -78,7 +83,7 @@ class NativeWebSearchTests(unittest.TestCase):
 
         with patch.dict(os.environ, {"DEEPSEEK_TEST_KEY": "test-only"}, clear=True):
             with patch("urllib.request.urlopen", return_value=fake_response) as mocked_urlopen:
-                answer, sources = handler.call_provider(
+                answer, sources, reasoning_summary = handler.call_provider(
                     [{"role": "user", "content": "请联网核实"}],
                     "自动",
                     "自动",
@@ -92,6 +97,8 @@ class NativeWebSearchTests(unittest.TestCase):
         self.assertEqual(request_payload["tools"], [{"type": "web_search"}])
         self.assertEqual(request_payload["tool_choice"], {"type": "web_search"})
         self.assertEqual(answer, "已完成联网核实。")
+        self.assertEqual(reasoning_summary, "先核对官方资料，再整理结论。")
+        self.assertNotIn("不应展示", reasoning_summary)
         self.assertEqual(
             sources,
             [
@@ -101,6 +108,24 @@ class NativeWebSearchTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_local_citations_are_deduplicated_and_only_show_used_files(self):
+        retrieved = server.unique_local_sources(
+            [
+                {"path": "史料/安阳集.md", "chunk": 1},
+                {"path": "史料/安阳集.md", "chunk": 2},
+                {"path": "年谱.pdf", "chunk": 1},
+            ]
+        )
+        cited = server.cited_local_sources("根据《安阳集》的相关记载……（史料/安阳集.md）", retrieved)
+        self.assertEqual(retrieved, [{"path": "史料/安阳集.md"}, {"path": "年谱.pdf"}])
+        self.assertEqual(cited, [{"path": "史料/安阳集.md", "name": "安阳集.md"}])
+
+    def test_fallback_reasoning_describes_observable_steps(self):
+        reasoning = server.reasoning_for_display("", [{"path": "安阳集.md"}], True)
+        self.assertEqual(reasoning["kind"], "activity_summary")
+        self.assertIn("已查阅 1 份本地文献", reasoning["summary"])
+        self.assertIn("已完成联网检索", reasoning["summary"])
 
 
 if __name__ == "__main__":

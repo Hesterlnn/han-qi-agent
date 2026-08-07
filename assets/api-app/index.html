@@ -18,6 +18,13 @@
     .library-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
     .library-row strong { margin-right:auto; }
     .library-status,.library-hint { margin:7px 0 0; color:#6f6253; font-size:13px; }
+    .library-files { margin-top:10px; max-height:220px; overflow:auto; border-top:1px solid #e5d8c6; padding-top:7px; }
+    .library-files[hidden] { display:none; }
+    .library-file { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:7px 4px; border-bottom:1px solid #eee4d6; font-size:13px; }
+    .library-file:last-child { border-bottom:0; }
+    .library-file-name { min-width:0; overflow-wrap:anywhere; }
+    .library-file-meta { color:#796c5d; white-space:nowrap; }
+    .library-file-error { grid-column:1/-1; color:#9b3d35; font-size:12px; }
     .research-note { flex-basis:100%; margin:0; padding:8px 10px; border-radius:9px; background:#f5e8d5; color:#6f4a36; font-size:13px; line-height:1.55; }
     .research-note[hidden] { display:none; }
     label { display:flex; gap:8px; align-items:center; font-size:14px; }
@@ -27,10 +34,32 @@
     .empty { color:#796c5d; text-align:center; padding:90px 10px; }
     .message { margin:0 0 16px; display:flex; }
     .message.user { justify-content:flex-end; }
-    .bubble { max-width:min(760px,88%); white-space:pre-wrap; padding:11px 14px; border-radius:14px; background:#eee3d3; }
+    .message-content { max-width:min(760px,88%); }
+    .bubble { white-space:pre-wrap; padding:11px 14px; border-radius:14px; background:#eee3d3; overflow-wrap:anywhere; }
     .assistant .bubble { background:white; border-left:4px solid var(--red); }
     .user .bubble { background:#8d3028; color:white; }
-    .retrieval { max-width:min(760px,88%); margin:6px 0 0; color:#6f6253; font-size:12px; }
+    .rich-text { white-space:normal; }
+    .rich-text > :first-child { margin-top:0; }
+    .rich-text > :last-child { margin-bottom:0; }
+    .rich-text p,.rich-text ul,.rich-text ol,.rich-text blockquote,.rich-text pre,.rich-text table { margin:.55em 0; }
+    .rich-text h1,.rich-text h2,.rich-text h3,.rich-text h4,.rich-text h5,.rich-text h6 { margin:.8em 0 .35em; line-height:1.3; font-family:Georgia,"STSong",serif; }
+    .rich-text h1 { font-size:1.55em; }.rich-text h2 { font-size:1.35em; }.rich-text h3 { font-size:1.18em; }
+    .rich-text ul,.rich-text ol { padding-left:1.6em; }
+    .rich-text blockquote { border-left:3px solid #c9ab86; padding:.2em .8em; color:#65594b; background:#faf4ea; }
+    .rich-text code { border-radius:5px; padding:.12em .35em; background:#f1e8db; font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .rich-text pre { overflow:auto; border-radius:9px; padding:11px; color:#f6eee2; background:#2e2924; }
+    .rich-text pre code { padding:0; color:inherit; background:transparent; }
+    .rich-text table { width:100%; border-collapse:collapse; display:block; overflow:auto; }
+    .rich-text th,.rich-text td { border:1px solid #d9cbb8; padding:6px 9px; text-align:left; }
+    .rich-text th { background:#f3e9db; }
+    .rich-text a { color:#71342f; text-decoration-thickness:1px; }
+    .thinking { margin:0 0 7px; border:1px solid #e1d3c0; border-radius:10px; color:#6a5c4d; background:rgba(255,250,241,.86); font-size:13px; }
+    .thinking summary { padding:7px 10px; cursor:pointer; user-select:none; }
+    .thinking-body { border-top:1px solid #eadfce; padding:8px 11px; }
+    .thinking-note { margin-top:6px; color:#8a7a68; font-size:11px; }
+    .thinking.pending summary::after { content:""; display:inline-block; width:8px; height:8px; margin-left:7px; border-radius:50%; background:var(--red); animation:pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity:.25; transform:scale(.75); } }
+    .retrieval { margin:6px 0 0; color:#6f6253; font-size:12px; }
     .retrieval a { color:#71342f; }
     .composer { padding:12px; display:grid; grid-template-columns:1fr auto; gap:10px; }
     textarea { width:100%; min-height:76px; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:10px; background:white; color:var(--ink); }
@@ -59,8 +88,10 @@
       <label class="file-button">添加文件<input id="corpus-files" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.docx,.pdf"></label>
       <label class="file-button">添加文件夹<input id="corpus-folder" type="file" multiple webkitdirectory directory></label>
       <button class="secondary" id="clear-corpus" type="button">清空文献库</button>
+      <button class="secondary" id="toggle-corpus-list" type="button" disabled>查看文件（0）</button>
     </div>
     <p class="library-status" id="corpus-status">正在读取文献库状态……</p>
+    <div class="library-files" id="corpus-list" hidden></div>
     <p class="library-hint">支持TXT、Markdown、CSV、JSON、HTML、DOCX和PDF。文献保存在本机；使用文献库时，只有与问题相关的节选会发送给当前模型。</p>
   </section>
   <section class="chat" id="chat"><div class="empty">可以闲谈，可以设一段情境，也可以把一件事交给他。</div></section>
@@ -84,18 +115,142 @@
   const corpusFiles = document.querySelector('#corpus-files');
   const corpusFolder = document.querySelector('#corpus-folder');
   const clearCorpus = document.querySelector('#clear-corpus');
+  const toggleCorpusList = document.querySelector('#toggle-corpus-list');
+  const corpusList = document.querySelector('#corpus-list');
 
   function syncResearchNote() { researchNote.hidden = mode.value !== '考据'; }
   mode.addEventListener('change', syncResearchNote);
   syncResearchNote();
 
-  function retrievalSummary(retrieval) {
-    const parts = [];
-    if (retrieval?.local?.length) {
-      const unique = [...new Map(retrieval.local.map(item => [`${item.path}|${item.locator}`, item])).values()];
-      parts.push(`本地文献：${unique.map(item => `${item.path}（${item.locator}）`).join('；')}`);
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+  }
+
+  function inlineMarkup(value) {
+    const tags = [];
+    let text = String(value).replace(/<\/?[a-z][^>]*>/gi, tag => {
+      const token = `\u0001HTML${tags.length}\u0002`;
+      tags.push(tag);
+      return token;
+    });
+    text = escapeHtml(text);
+    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    text = text.replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => `<a href="${escapeHtml(url)}">${label}</a>`);
+    text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+    text = text.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+    text = text.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    text = text.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+    tags.forEach((tag, index) => { text = text.replace(`\u0001HTML${index}\u0002`, tag); });
+    return text;
+  }
+
+  function tableCells(line) {
+    return line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+  }
+
+  function markdownToHtml(markdown) {
+    const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+    const output = [];
+    let paragraph = [];
+    const flushParagraph = () => {
+      if (!paragraph.length) return;
+      output.push(`<p>${paragraph.map(inlineMarkup).join('<br>')}</p>`);
+      paragraph = [];
+    };
+    for (let index = 0; index < lines.length;) {
+      const line = lines[index];
+      const trimmed = line.trim();
+      if (/^```/.test(trimmed)) {
+        flushParagraph();
+        const code = [];
+        index += 1;
+        while (index < lines.length && !/^```/.test(lines[index].trim())) code.push(lines[index++]);
+        if (index < lines.length) index += 1;
+        output.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+        continue;
+      }
+      if (!trimmed) { flushParagraph(); index += 1; continue; }
+      if (index + 1 < lines.length && trimmed.includes('|') && /^\s*\|?\s*:?-{3,}/.test(lines[index + 1])) {
+        flushParagraph();
+        const headers = tableCells(line);
+        index += 2;
+        const rows = [];
+        while (index < lines.length && lines[index].includes('|') && lines[index].trim()) rows.push(tableCells(lines[index++]));
+        output.push(`<table><thead><tr>${headers.map(cell => `<th>${inlineMarkup(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cellIndex) => `<td>${inlineMarkup(row[cellIndex] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+        continue;
+      }
+      const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (heading) { flushParagraph(); output.push(`<h${heading[1].length}>${inlineMarkup(heading[2])}</h${heading[1].length}>`); index += 1; continue; }
+      if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { flushParagraph(); output.push('<hr>'); index += 1; continue; }
+      if (/^>\s?/.test(trimmed)) {
+        flushParagraph();
+        const quoted = [];
+        while (index < lines.length && /^>\s?/.test(lines[index].trim())) quoted.push(lines[index++].trim().replace(/^>\s?/, ''));
+        output.push(`<blockquote>${quoted.map(inlineMarkup).join('<br>')}</blockquote>`);
+        continue;
+      }
+      const list = trimmed.match(/^([-+*]|\d+\.)\s+(.+)$/);
+      if (list) {
+        flushParagraph();
+        const ordered = /\d+\./.test(list[1]);
+        const items = [];
+        while (index < lines.length) {
+          const match = lines[index].trim().match(/^([-+*]|\d+\.)\s+(.+)$/);
+          if (!match || /\d+\./.test(match[1]) !== ordered) break;
+          items.push(match[2]);
+          index += 1;
+        }
+        const tag = ordered ? 'ol' : 'ul';
+        output.push(`<${tag}>${items.map(item => `<li>${inlineMarkup(item)}</li>`).join('')}</${tag}>`);
+        continue;
+      }
+      if (/^<\/?[a-z][^>]*>/i.test(trimmed)) { flushParagraph(); output.push(inlineMarkup(line)); index += 1; continue; }
+      paragraph.push(line);
+      index += 1;
     }
-    return {parts, web: retrieval?.web || []};
+    flushParagraph();
+    return output.join('');
+  }
+
+  function sanitizedRichFragment(markdown) {
+    const template = document.createElement('template');
+    template.innerHTML = markdownToHtml(markdown);
+    const allowed = new Set(['A','BLOCKQUOTE','BR','CODE','DEL','DETAILS','EM','H1','H2','H3','H4','H5','H6','HR','LI','OL','P','PRE','STRONG','SUMMARY','TABLE','TBODY','TD','TH','THEAD','TR','UL']);
+    const blocked = new Set(['BASE','BUTTON','EMBED','FORM','IFRAME','INPUT','LINK','MATH','META','OBJECT','SCRIPT','SELECT','STYLE','SVG','TEXTAREA']);
+    Array.from(template.content.querySelectorAll('*')).forEach(element => {
+      if (blocked.has(element.tagName)) { element.remove(); return; }
+      if (!allowed.has(element.tagName)) {
+        const fragment = document.createDocumentFragment();
+        while (element.firstChild) fragment.appendChild(element.firstChild);
+        element.replaceWith(fragment);
+        return;
+      }
+      const href = element.tagName === 'A' ? element.getAttribute('href') : null;
+      Array.from(element.attributes).forEach(attribute => element.removeAttribute(attribute.name));
+      if (element.tagName === 'A' && href) {
+        try {
+          const target = new URL(href, window.location.href);
+          if (['http:', 'https:'].includes(target.protocol)) {
+            element.href = target.href;
+            element.target = '_blank';
+            element.rel = 'noopener noreferrer';
+          }
+        } catch (_) { /* invalid links remain plain text */ }
+      }
+    });
+    return template.content.cloneNode(true);
+  }
+
+  function renderRichText(container, markdown) {
+    container.classList.add('rich-text');
+    container.replaceChildren(sanitizedRichFragment(markdown));
+  }
+
+  function retrievalSummary(retrieval) {
+    const local = [...new Map((retrieval?.local || []).filter(item => item?.path).map(item => [item.path, item])).values()];
+    const web = [...new Map((retrieval?.web || []).filter(item => item?.url).map(item => [item.url, item])).values()];
+    return {local, web};
   }
 
   function render() {
@@ -104,17 +259,38 @@
       const row = document.createElement('div');
       row.className = `message ${message.role}`;
       const wrapper = document.createElement('div');
+      wrapper.className = 'message-content';
+      if (message.role === 'assistant' && (message.pending || message.reasoning?.summary)) {
+        const thinking = document.createElement('details');
+        thinking.className = `thinking${message.pending ? ' pending' : ''}`;
+        thinking.open = Boolean(message.pending);
+        const heading = document.createElement('summary');
+        heading.textContent = message.pending ? '正在思考…' : `思考了 ${Math.max(.1, Number(message.elapsed || 0)).toFixed(1)} 秒`;
+        thinking.appendChild(heading);
+        const body = document.createElement('div');
+        body.className = 'thinking-body';
+        renderRichText(body, message.pending ? '- 正在分析问题和准备回答' : message.reasoning.summary);
+        if (!message.pending) {
+          const note = document.createElement('div');
+          note.className = 'thinking-note';
+          note.textContent = message.reasoning.kind === 'provider_summary' ? '模型提供的思考摘要' : '根据可验证的检索和处理步骤生成的摘要';
+          body.appendChild(note);
+        }
+        thinking.appendChild(body);
+        wrapper.appendChild(thinking);
+      }
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = message.content;
-      wrapper.appendChild(bubble);
+      if (message.role === 'assistant') renderRichText(bubble, message.content || '');
+      else bubble.textContent = message.content;
+      if (!message.pending) wrapper.appendChild(bubble);
       const summary = retrievalSummary(message.retrieval);
-      if (summary.parts.length || summary.web.length) {
+      if (summary.local.length || summary.web.length) {
         const meta = document.createElement('div');
         meta.className = 'retrieval';
-        if (summary.parts.length) meta.append(document.createTextNode(summary.parts.join('；')));
+        if (summary.local.length) meta.append(document.createTextNode(`参考文献：${summary.local.map(item => item.name || item.path).join('；')}`));
         if (summary.web.length) {
-          if (summary.parts.length) meta.append(document.createElement('br'));
+          if (summary.local.length) meta.append(document.createElement('br'));
           meta.append(document.createTextNode('联网来源：'));
           summary.web.forEach((item, index) => {
             if (index) meta.append(document.createTextNode('；'));
@@ -136,9 +312,45 @@
 
   function showCorpusStatus(report, prefix='') {
     const issues = report?.issues?.length || 0;
+    const files = Array.isArray(report?.files) ? report.files : [];
     corpusStatus.textContent = `${prefix}${report?.file_count || 0} 个文件，${report?.extracted_files || 0} 个可读取${issues ? `，${issues} 个需要处理` : ''}`;
     corpusStatus.title = issues ? report.issues.map(item => `${item.path}: ${item.error || item.status}`).join('\n') : '';
+    toggleCorpusList.disabled = files.length === 0;
+    toggleCorpusList.textContent = `查看文件（${files.length}）`;
+    corpusList.replaceChildren();
+    files.forEach(file => {
+      const row = document.createElement('div');
+      row.className = 'library-file';
+      const name = document.createElement('span');
+      name.className = 'library-file-name';
+      name.textContent = file.path;
+      name.title = file.path;
+      const meta = document.createElement('span');
+      meta.className = 'library-file-meta';
+      const labels = {extracted:'可用',empty:'无可读取文字',error:'读取失败',skipped:'已跳过',unsupported:'不支持'};
+      meta.textContent = `${labels[file.status] || file.status || '未知'} · ${formatBytes(file.size || 0)}`;
+      row.append(name, meta);
+      if (file.error) {
+        const error = document.createElement('span');
+        error.className = 'library-file-error';
+        error.textContent = file.error;
+        row.appendChild(error);
+      }
+      corpusList.appendChild(row);
+    });
+    if (!files.length) corpusList.hidden = true;
   }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  toggleCorpusList.addEventListener('click', () => {
+    corpusList.hidden = !corpusList.hidden;
+    toggleCorpusList.textContent = `${corpusList.hidden ? '查看' : '收起'}文件（${corpusList.childElementCount}）`;
+  });
 
   function readAsBase64(file) {
     return new Promise((resolve, reject) => {
@@ -192,12 +404,16 @@
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.querySelector('#form').requestSubmit(); } });
   document.querySelector('#form').onsubmit = async event => {
     event.preventDefault(); const content=input.value.trim(); if (!content) return;
-    messages.push({role:'user',content}); input.value=''; render(); send.disabled=true; send.textContent='思量中…';
+    messages.push({role:'user',content});
+    const requestMessages = messages.filter(message => !message.pending).map(message => ({role:message.role,content:message.content}));
+    const pending = {role:'assistant',content:'',pending:true};
+    messages.push(pending); input.value=''; render(); send.disabled=true; send.textContent='思量中…';
+    const startedAt = performance.now();
     try {
-      const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,mode:mode.value,world:world.value,use_corpus:useCorpus.checked,web_search:webSearch.checked})});
+      const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:requestMessages,mode:mode.value,world:world.value,use_corpus:useCorpus.checked,web_search:webSearch.checked})});
       const data=await response.json(); if (!response.ok) throw new Error(data.error || '请求失败');
-      messages.push({role:'assistant',content:data.content,retrieval:data.retrieval});
-    } catch (error) { messages.push({role:'assistant',content:`[连接错误] ${error.message}`}); }
+      Object.assign(pending,{content:data.content,retrieval:data.retrieval,reasoning:data.reasoning,pending:false,elapsed:(performance.now()-startedAt)/1000});
+    } catch (error) { Object.assign(pending,{content:`[连接错误] ${error.message}`,pending:false,elapsed:(performance.now()-startedAt)/1000}); }
     finally { send.disabled=false; send.textContent='发送'; render(); input.focus(); }
   };
   fetch('/api/status').then(r=>r.json()).then(s=>{
@@ -209,6 +425,7 @@
     webSearchLabel.title=s.web_search_configured?'默认关闭；打开后持续联网，直到手动关闭或刷新页面':'请让安装包提供方或管理员配置联网检索';
     showCorpusStatus(s.corpus || {});
   }).catch(()=>{const status=document.querySelector('#status'); status.textContent='无法读取服务状态'; status.title=status.textContent; corpusStatus.textContent='无法读取文献库状态';});
+  document.documentElement.dataset.appReady = 'true';
   input.focus();
 </script>
 </body>

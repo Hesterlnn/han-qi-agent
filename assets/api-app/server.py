@@ -179,6 +179,47 @@ def search_web(settings: dict[str, Any], query: str, max_results: int = 5) -> li
     raise ValueError("联网检索配置无效")
 
 
+def unique_local_sources(local_results: list[dict]) -> list[dict[str, str]]:
+    sources: list[dict[str, str]] = []
+    seen_paths: set[str] = set()
+    for item in local_results:
+        path = str(item.get("path", "")).strip()
+        if path and path not in seen_paths:
+            seen_paths.add(path)
+            sources.append({"path": path})
+    return sources
+
+
+def cited_local_sources(answer: str, sources: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "path": item["path"],
+            "name": PurePosixPath(item["path"].replace("\\", "/")).name,
+        }
+        for item in sources
+        if item["path"] in answer or Path(item["path"]).name in answer
+    ]
+
+
+def reasoning_for_display(
+    provider_summary: str,
+    retrieved_local_sources: list[dict[str, str]],
+    web_requested: bool,
+) -> dict[str, str]:
+    if provider_summary:
+        return {"summary": provider_summary, "kind": "provider_summary"}
+    steps = ["已分析问题和对话上下文"]
+    if retrieved_local_sources:
+        steps.append(f"已查阅 {len(retrieved_local_sources)} 份本地文献")
+    if web_requested:
+        steps.append("已完成联网检索")
+    steps.append("已整理信息并生成回答")
+    return {
+        "summary": "\n".join(f"- {step}" for step in steps),
+        "kind": "activity_summary",
+    }
+
+
 class HanQiServer(ThreadingHTTPServer):
     config: dict[str, Any]
     index_html: bytes
@@ -283,7 +324,7 @@ class Handler(BaseHTTPRequestHandler):
                 if web_requested and not native_web_search
                 else []
             )
-            answer, native_sources = self.call_provider(
+            answer, native_sources, provider_reasoning_summary = self.call_provider(
                 cleaned,
                 mode,
                 world,
@@ -292,18 +333,21 @@ class Handler(BaseHTTPRequestHandler):
                 native_web_search,
             )
             displayed_web_results = native_sources if native_web_search else web_results
+            retrieved_local_sources = unique_local_sources(local_results)
+            local_sources = cited_local_sources(answer, retrieved_local_sources)
+            reasoning = reasoning_for_display(provider_reasoning_summary, retrieved_local_sources, web_requested)
             retrieval = {
-                "local": [
-                    {
-                        "path": item["path"],
-                        "locator": item["locator"],
-                        "chunk": item["chunk"],
-                    }
-                    for item in local_results
-                ],
+                "local": local_sources,
                 "web": [{"title": item["title"], "url": item["url"]} for item in displayed_web_results],
             }
-            self.send_json(HTTPStatus.OK, {"content": answer, "retrieval": retrieval})
+            self.send_json(
+                HTTPStatus.OK,
+                {
+                    "content": answer,
+                    "retrieval": retrieval,
+                    "reasoning": reasoning,
+                },
+            )
         except ValueError as exc:
             self.send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
         except urllib.error.HTTPError as exc:
@@ -384,7 +428,7 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         resolved.unlink()
             root.mkdir(parents=True, exist_ok=True)
-        return {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "issues": []}
+        return {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "files": [], "issues": []}
 
     def call_provider(
         self,
@@ -394,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
         local_results: list[dict],
         web_results: list[dict[str, str]],
         native_web_search: bool,
-    ) -> tuple[str, list[dict[str, str]]]:
+    ) -> tuple[str, list[dict[str, str]], str]:
         config = self.server.config
         provider = config["provider"]
         api_key = os.environ.get(provider["api_key_env"])
@@ -444,8 +488,13 @@ class Handler(BaseHTTPRequestHandler):
                 "input": messages,
                 "store": False,
             }
+            reasoning_options: dict[str, str] = {}
             if provider.get("reasoning_effort"):
-                payload["reasoning"] = {"effort": provider["reasoning_effort"]}
+                reasoning_options["effort"] = provider["reasoning_effort"]
+            if config["name"] == "openai":
+                reasoning_options["summary"] = "auto"
+            if reasoning_options:
+                payload["reasoning"] = reasoning_options
             if native_web_search:
                 payload["tools"] = [{"type": "web_search"}]
                 payload["tool_choice"] = {"type": "web_search"}
@@ -474,9 +523,20 @@ class Handler(BaseHTTPRequestHandler):
             result = json.loads(response.read())
         if protocol == "responses":
             texts: list[str] = []
+            reasoning_summaries: list[str] = []
             sources: list[dict[str, str]] = []
             seen_urls: set[str] = set()
             for output in result.get("output", []):
+                if output.get("type") == "reasoning":
+                    for summary in output.get("summary") or []:
+                        if (
+                            isinstance(summary, dict)
+                            and summary.get("type") == "summary_text"
+                            and isinstance(summary.get("text"), str)
+                            and summary["text"].strip()
+                        ):
+                            reasoning_summaries.append(summary["text"].strip())
+                    continue
                 if output.get("type") != "message":
                     continue
                 for content in output.get("content", []):
@@ -501,10 +561,10 @@ class Handler(BaseHTTPRequestHandler):
                         if url not in seen_urls:
                             seen_urls.add(url)
                             sources.append({"title": url, "url": url})
-                return answer, sources
+                return answer, sources, "\n\n".join(reasoning_summaries)
             raise ValueError("Responses API returned no output_text")
         try:
-            return result["choices"][0]["message"]["content"], []
+            return result["choices"][0]["message"]["content"], [], ""
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError("Provider returned an unsupported Chat Completions response") from exc
 
