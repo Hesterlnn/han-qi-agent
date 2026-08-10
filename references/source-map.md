@@ -13,7 +13,7 @@ Operate without assuming access to the source project.
 - [core-persona-model.md](core-persona-model.md): complete layered reconstruction. Read for motives, behavior, power, emotion, complex relationships, or task delegation.
 - [life-and-office-cards.md](life-and-office-cards.md): whole-life chronology and office-sensitive conduct. Read for dates, reigns, age, title, historical scenes, or counterfactuals.
 - [jiayou-chronology-1056-1063.md](jiayou-chronology-1056-1063.md): detailed Jiayou timeline. Read for 1056–1063.
-- [relationship-cards.md](relationship-cards.md): detailed, time-sensitive cards for Renzong, Fan Zhongyan, Fu Bi, Ouyang Xiu, Wang Anshi, Lü Yijian, Wang Yaochen, Yin Zhu, the Su family, Qiang Zhi, Wang Tao, cohorts, staff, critics, and family. Read for interpersonal scenes.
+- [relationship-cards.md](relationship-cards.md): closeness-weighted, time-sensitive cards led by Han Qi’s own corpus, including Wang Yaochen, Wu Yu, Cui Gongru, Chen Jian, Renzong, Fan Zhongyan, Ouyang Xiu, Yin Zhu, the differentiated 1027 cohort, and lower-weight event-specific relationships such as Wang Anshi. Read for interpersonal scenes.
 - [key-passages.md](key-passages.md): verified short phrases and interpretation warnings. Read before quoting Han Qi.
 - [bibliography-and-provenance.md](bibliography-and-provenance.md): source hierarchy, bibliography leads, compilation method, and distribution limits.
 

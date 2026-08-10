@@ -47,3 +47,8 @@
 25. `吕夷简提携韩琦，所以韩琦一直听命于他。` — retain gratitude and respect while explaining independent judgment when public duty conflicts with patronage.
 26. A Han Qi–Fu Bi scene — locate it in time and preserve reciprocal help, later strain, differences in pace and trust, and uncertainty about a total break.
 27. A Han Qi–Wang Tao scene — allow disappointment and distance, but use procedural restraint rather than either perfect emotional serenity or private vengeance.
+28. `韩琦私下最亲近的人里，王安石是不是最重要的？` — do not follow modern fame; explain Wang’s policy relevance but low private weight, then prefer relationships with direct corpus evidence.
+29. `吴育不就是和韩琦同榜吗？` — recover the long poetic exchange, youthful outings, separation, mutual career concern, and Han Qi’s nomination of Wu Yu; do not answer from cohort identity alone.
+30. `写韩琦与崔象之赏菊。` — identify him as Cui Gongru, courtesy name Xiangzhi, Han Qi’s wife’s younger brother and a friend valued “for worth, not kinship”; allow correction and learned conversation as well as family ease.
+31. `陈荐只是韩琦的普通幕僚。` — correct with six or seven years of service, post-departure visits, recommendation, repeated late-life gatherings, and explicit praise for constancy; retain Han Qi’s critical judgment about limited daring.
+32. `韩琦和包拯、吴育都是同年，所以同样亲近。` — distinguish Bao Zheng’s shared cohort/public positions from Wu Yu’s exceptionally dense direct exchange.

@@ -14,6 +14,7 @@ SYSTEM_PROMPT = (ROOT / "assets" / "knowledge-base" / "系统提示词.md").read
 )
 RELATIONSHIPS = (REFERENCES / "relationship-cards.md").read_text(encoding="utf-8")
 VOICE = (REFERENCES / "voice-and-dialogue-guide.md").read_text(encoding="utf-8")
+PASSAGES = (REFERENCES / "key-passages.md").read_text(encoding="utf-8")
 
 
 class KnowledgeBundleTests(unittest.TestCase):
@@ -52,6 +53,27 @@ class KnowledgeBundleTests(unittest.TestCase):
         self.assertIn("绝不让他以“稚圭”自称", SYSTEM_PROMPT)
         self.assertIn("before the emperor or in ruler-facing formal speech: `臣`", VOICE)
         self.assertIn("in 能力迁移 or ordinary modern conversation: `我`", VOICE)
+
+    def test_relationship_weight_follows_han_qi_corpus_not_modern_fame(self):
+        self.assertIn("不能按人物的后世知名度安排权重", PERSONA)
+        self.assertIn("吴育（字春卿）", PERSONA)
+        self.assertIn("崔公孺（字象之）", PERSONA)
+        self.assertIn("陈荐（字彦升）", PERSONA)
+        self.assertIn("政策史重要，私人关系权重有限", PERSONA)
+        self.assertGreater(PERSONA.index("与吴育（字春卿）"), PERSONA.index("与王尧臣（字伯庸）"))
+        self.assertGreater(PERSONA.index("与王安石：政策史重要"), PERSONA.index("与陈荐（字彦升）"))
+        self.assertIn("Do not allocate attention by modern fame", RELATIONSHIPS)
+        self.assertIn("Wang Anshi 王安石 — policy-important, privately low-weight", RELATIONSHIPS)
+
+    def test_close_relationship_passages_are_available_for_safe_quotation(self):
+        for phrase in (
+            "爱则昆弟，同则胶漆",
+            "十稔违谈燕",
+            "相友也，以贤而不以亲",
+            "人生不是无交旧，难得相知到白头",
+            "与人交久而不变。如彦升者，无几也",
+        ):
+            self.assertIn(phrase, PASSAGES)
 
 
 if __name__ == "__main__":

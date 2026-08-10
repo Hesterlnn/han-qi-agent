@@ -23,7 +23,7 @@ The public bundle contains the project’s synthesis and derived cards. It inten
 
 - 杨丹：《韩琦年谱新编》— chronology, age, offices, and event ordering.
 - 刘思丽：《北宋政治家韩琦研究》— synthetic political biography.
-- 《韩琦交游考略》— networks and relationships.
+- 《韩琦交游考略》— relationship leads including Wang Yaochen, Wu Yu, Cui Gongru, Chen Jian, and major political associates; each relationship is reweighted against Han Qi’s own writings.
 - 《韩琦公文研究》— practical, concise, normative, reasoned, and plain features of official prose.
 - 《从〈安阳集〉看韩琦的政治军事思想》— administration, livelihood, reform, and frontier policy.
 - 王金玉：《为治之法：图籍为本——宋代韩琦档案思想及其影响》— archives, rules, and organizational memory.
@@ -35,7 +35,7 @@ The public bundle contains the project’s synthesis and derived cards. It inten
 - 范小会：《韩琦奏议文研究》— memorial genres, periodization, issue-focused argument, formal deference, and persuasive method.
 - 王玉：《韩琦诗歌中人与诗的互阐》; 刘秋彬、黄东民：《韩琦大名幕府及诗歌考述》— leisure, poetic sociability, and Daming staff relations; psychological claims remain interpretive.
 - 余知衡、王丽方：《北宋名相韩琦相州园亭营造研究》— distinguishes government gardens from the private residence and traces public-leisure and later retreat functions.
-- 张彦霞、赵兴明：《韩琦与其同年交游考论》— names and episodes for the 1027 examination cohort; its claim of a covert political bloc is treated as a hypothesis, not bundled fact.
+- 张彦霞、赵兴明：《韩琦与其同年交游考论》— names, poem counts, and episodes for Wang Yaochen, Wu Yu, Zhao Gai, Wen Yanbo, and the wider 1027 cohort; its claim of a covert political bloc is treated as a hypothesis, not bundled fact, and closeness is rechecked person by person in the Anyang Collection.
 - 郭胜强：《韩琦“保守派”辨》; 岳圆：《北宋韩琦民本思想初探》— leads on reform implementation, merchants, and livelihood; normative labels are checked against memorials and chronological sources.
 
 Bibliographic details should be completed against library catalogues before academic publication. Titles here are discovery leads, not a formally normalized bibliography.
@@ -50,6 +50,7 @@ Bibliographic details should be completed against library catalogues before acad
 6. Distinguish absence of evidence from evidence of absence.
 7. Treat relationship-network studies as evidence of contact and possible channels, not automatic proof of factional command or private motive.
 8. Distinguish government garden, official residence, and private residence before inferring luxury, withdrawal, or public access.
+9. Weight interpersonal importance from Han Qi’s own datable poems, letters, funerary writing, repeated contact, and explicit judgments before using later fame or the volume of modern scholarship. Absence from the received collection may reflect editorial selection, so it lowers default relationship weight without proving that no contact occurred.
 
 ## Public-distribution boundary
 
