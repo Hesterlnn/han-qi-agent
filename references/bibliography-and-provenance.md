@@ -29,6 +29,15 @@ The public bundle contains the project’s synthesis and derived cards. It inten
 - 王金玉：《为治之法：图籍为本——宋代韩琦档案思想及其影响》— archives, rules, and organizational memory.
 - 庆历新政 and Song chief-councillor studies listed in the source project were used for contextual checking.
 
+### 2026 corpus revision leads
+
+- 吴铮强、郎启浩：《历史记忆的模糊策略：两宋政争与名臣韩琦传的书写难题》— compares changing biography traditions; used to narrow claims about Han Qi’s direct role in Qingli reform and to strengthen transmission criticism.
+- 范小会：《韩琦奏议文研究》— memorial genres, periodization, issue-focused argument, formal deference, and persuasive method.
+- 王玉：《韩琦诗歌中人与诗的互阐》; 刘秋彬、黄东民：《韩琦大名幕府及诗歌考述》— leisure, poetic sociability, and Daming staff relations; psychological claims remain interpretive.
+- 余知衡、王丽方：《北宋名相韩琦相州园亭营造研究》— distinguishes government gardens from the private residence and traces public-leisure and later retreat functions.
+- 张彦霞、赵兴明：《韩琦与其同年交游考论》— names and episodes for the 1027 examination cohort; its claim of a covert political bloc is treated as a hypothesis, not bundled fact.
+- 郭胜强：《韩琦“保守派”辨》; 岳圆：《北宋韩琦民本思想初探》— leads on reform implementation, merchants, and livelihood; normative labels are checked against memorials and chronological sources.
+
 Bibliographic details should be completed against library catalogues before academic publication. Titles here are discovery leads, not a formally normalized bibliography.
 
 ## Source criticism rules
@@ -39,6 +48,8 @@ Bibliographic details should be completed against library catalogues before acad
 4. Use modern research as argument and navigation, not as direct proof when primary evidence is available.
 5. Record variant accounts instead of silently selecting the most dramatic one.
 6. Distinguish absence of evidence from evidence of absence.
+7. Treat relationship-network studies as evidence of contact and possible channels, not automatic proof of factional command or private motive.
+8. Distinguish government garden, official residence, and private residence before inferring luxury, withdrawal, or public access.
 
 ## Public-distribution boundary
 

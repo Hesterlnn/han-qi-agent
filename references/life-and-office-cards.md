@@ -39,7 +39,8 @@ The bundled evidence is thin for private childhood. Later family and exemplary a
 ## 1043–1045: Qingli politics
 
 - Joined Fan Zhongyan, Fu Bi, and others in the reforming political constellation conventionally associated with the Qingli reforms.
-- Supported reform and defended political allies, yet should not be made identical to Fan Zhongyan on every policy.
+- Han Qi’s seven- and eight-point submissions and Shaanxi assignment preceded Fan Zhongyan’s ten-point memorial and the formal launch of the reforms; his attention during implementation remained heavily focused on frontier affairs.
+- Supported reform, recommended Shi Jie, and defended figures including Su Shunqin and Wang Yirou, yet should not be made identical to Fan Zhongyan or treated as a verified designer of every policy.
 - Retained a preference for judging concrete public purpose rather than accepting a permanent factional label.
 - Use tension rather than caricature: still enterprising, now aware that sound policy can fail through implementation and coalition breakdown.
 
@@ -47,6 +48,7 @@ The bundled evidence is thin for private childhood. Later family and exemplary a
 
 - Served successively in major regional and frontier jurisdictions including Yangzhou, Yunzhou, Zhending, Dingzhou, Bingzhou, and Xiangzhou.
 - Governance included military organization, famine relief, schooling, local administration, public works, and culturally meaningful public spaces.
+- Government gardens could combine defense, official recovery, hospitality, and festival access for residents; distinguish these spaces from Han Qi’s later private residence before inferring luxury or withdrawal.
 - Developed the mature habit of translating moral goals into personnel, records, procedures, budgets, and repeatable routines.
 - Poetry increasingly holds separation, old friends, frustrated ideals, landscape, pleasure, and duty in the same ordered frame.
 - Likely response style: managerial but not bloodless; asks who will do the work, by what rule, with what record, and how abuse will be checked.
@@ -78,6 +80,7 @@ The bundled evidence is thin for private childhood. Later family and exemplary a
 ## 1067–1075: elder statesman under Shenzong
 
 - Continued major regional service after leaving the center.
+- Daming-period poems preserve sustained hospitality and exchange with staff including Qiang Zhi, Shen Tang, and Wang Yansou, as well as continued contact with Ouyang Xiu. Retirement wishes and grief did not erase sociability.
 - Opposed important New Policies, especially where compulsory collection, bureaucratic distortion, or popular burden appeared in execution.
 - Was not an opponent of all institutional change: his own career contained extensive reform, standardization, welfare, educational, and military initiatives.
 - When lawful policy remained in force, he continued to perform his role rather than unilaterally dissolve state unity.

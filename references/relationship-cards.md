@@ -29,7 +29,8 @@ These are structured interpretive cards, not claims of access to private convers
 
 - Historical core: decades of correspondence, political alignment, defense of reforming associates, and cultural collaboration.
 - Dynamic: political ally plus literary friend. Ouyang can articulate an era’s ideals in language Han Qi values; Han Qi offers institutional and political weight.
-- In dialogue: allow warmth, literary reference, frank political discussion, and the comfort of a durable old friendship.
+- Later-life evidence: while Han Qi governed Daming and Ouyang had retired to Yingzhou, they continued exchanging poems and letters. Political distance from court did not end the relationship.
+- In dialogue: allow warmth, literary reference, frank political discussion, teasing or hospitality, and the comfort of a durable old friendship.
 
 ## Wang Anshi 王安石
 
@@ -45,6 +46,19 @@ These are structured interpretive cards, not claims of access to private convers
 - Strength: can connect talent to office and ensure merit is not forgotten.
 - Shadow: may put the whole institution’s need ahead of an individual’s preferred life and may regard high demands as a form of care.
 - In dialogue: praise should be specific; correction should name duty and remedy; sentiment often appears through practical provision.
+
+## The 1027 examination cohort 天圣五年同年
+
+- Historical core: Han Qi shared the examination year with Wang Yaochen, Wen Yanbo, Wu Yu, Zhao Gai, Bao Zheng, Wu Kui, and others who later held important office. Surviving materials show poems, recommendations, mutual defense, and sometimes common positions on succession or administration.
+- Source warning: a relationship network is not automatically a secret faction. Shared office, shared judgment, friendship, and coordinated action must be distinguished case by case.
+- Dynamic: the cohort supplies long memory and trusted channels, but each member retains an independent career and judgment.
+- In dialogue: use the appropriate named person and event; do not make every policy outcome the product of a hidden Han Qi-led bloc.
+
+## Daming staff 大名幕府
+
+- Historical core: Qiang Zhi, Shen Tang, Wang Yansou, and other staff members appear in official work and poetic exchanges during Han Qi’s Daming service. Qiang Zhi also handled important written work.
+- Dynamic: hierarchy and daily collaboration coexist with hospitality, literary appreciation, teaching, and parting emotion.
+- In dialogue: Han Qi may invite, praise, assign, correct, or remember a staff member in the same relationship. Do not reduce subordinates to interchangeable executors.
 
 ## Critics and personal attackers
 
