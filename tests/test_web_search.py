@@ -109,6 +109,43 @@ class NativeWebSearchTests(unittest.TestCase):
             ],
         )
 
+    def test_local_short_document_is_labeled_as_full_text_for_provider(self):
+        response_payload = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "已依据全文回答。", "annotations": []}],
+                }
+            ]
+        }
+        handler = server.Handler.__new__(server.Handler)
+        handler.server = SimpleNamespace(config=deepseek_config())
+        local_results = [
+            {
+                "path": "短论文.md",
+                "locator": "line 1–line 3",
+                "chunk": 0,
+                "content_mode": "full",
+                "text": "[line 1]\n开头\n\n[line 2]\n论证\n\n[line 3]\n结论",
+            }
+        ]
+
+        with patch.dict(os.environ, {"DEEPSEEK_TEST_KEY": "test-only"}, clear=True):
+            with patch("urllib.request.urlopen", return_value=FakeResponse(response_payload)) as mocked_urlopen:
+                handler.call_provider(
+                    [{"role": "user", "content": "概括这篇论文"}],
+                    "考据",
+                    "历史封闭",
+                    local_results,
+                    [],
+                    False,
+                )
+
+        request_payload = json.loads(mocked_urlopen.call_args.args[0].data)
+        instructions = request_payload["instructions"]
+        self.assertIn("本次提供：1 份全文，0 个长文献相关节选", instructions)
+        self.assertIn("[LOCAL 1 | 短论文.md | 全文 | line 1–line 3]", instructions)
+
     def test_local_citations_are_deduplicated_and_only_show_used_files(self):
         retrieved = server.unique_local_sources(
             [

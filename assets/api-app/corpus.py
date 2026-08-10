@@ -18,6 +18,9 @@ from xml.etree import ElementTree
 SUPPORTED = {".txt", ".md", ".markdown", ".csv", ".json", ".html", ".htm", ".docx", ".pdf"}
 ASCII_WORD = re.compile(r"[A-Za-z0-9_]+")
 CJK_RUN = re.compile(r"[\u3400-\u9fff]+")
+INDEX_FORMAT_VERSION = 2
+FULL_TEXT_DOCUMENT_MAX_CHARS = 24_000
+FULL_TEXT_REQUEST_MAX_CHARS = 48_000
 
 
 class TextHTMLParser(HTMLParser):
@@ -139,6 +142,22 @@ def chunk_units(
     return chunks
 
 
+def full_document(units: Iterable[tuple[str, str]]) -> tuple[str, str, int]:
+    """Preserve a document's extracted reading order and location labels."""
+    cleaned: list[tuple[str, str]] = []
+    character_count = 0
+    for label, text in units:
+        text = re.sub(r"[ \t]+", " ", text).strip()
+        if text:
+            cleaned.append((label, text))
+            character_count += len(text)
+    if not cleaned:
+        return "", "", 0
+    locator = cleaned[0][0] if len(cleaned) == 1 else f"{cleaned[0][0]}–{cleaned[-1][0]}"
+    text = "\n\n".join(f"[{label}]\n{value}" for label, value in cleaned)
+    return locator, text, character_count
+
+
 def _write_jsonl_atomic(path: Path, records: Iterable[dict]) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", encoding="utf-8", newline="\n") as handle:
@@ -153,6 +172,7 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
     index_dir.mkdir(parents=True, exist_ok=True)
     manifest: list[dict] = []
     all_chunks: list[dict] = []
+    documents: list[dict] = []
     for candidate in sorted(corpus_dir.rglob("*")):
         if not candidate.is_file():
             continue
@@ -170,6 +190,7 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
             "status": "pending",
             "source_id": None,
             "chunk_count": 0,
+            "character_count": 0,
             "error": None,
         }
         if suffix not in SUPPORTED:
@@ -183,10 +204,24 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
             continue
         try:
             source_id = sha256(resolved)[:16]
-            chunks = chunk_units(extract_units(resolved))
+            units = extract_units(resolved)
+            document_locator, document_text, character_count = full_document(units)
+            chunks = chunk_units(units)
             record["source_id"] = source_id
             record["chunk_count"] = len(chunks)
+            record["character_count"] = character_count
             record["status"] = "extracted" if chunks else "empty"
+            if document_text:
+                documents.append(
+                    {
+                        "source_id": source_id,
+                        "path": relative,
+                        "extension": suffix,
+                        "locator": document_locator,
+                        "character_count": character_count,
+                        "text": document_text,
+                    }
+                )
             for index, (locator, text) in enumerate(chunks, 1):
                 all_chunks.append(
                     {
@@ -204,7 +239,10 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
         manifest.append(record)
     _write_jsonl_atomic(index_dir / "manifest.jsonl", manifest)
     _write_jsonl_atomic(index_dir / "chunks.jsonl", all_chunks)
+    _write_jsonl_atomic(index_dir / "documents.jsonl", documents)
     report = {
+        "index_version": INDEX_FORMAT_VERSION,
+        "full_text_max_chars": FULL_TEXT_DOCUMENT_MAX_CHARS,
         "file_count": len(manifest),
         "extracted_files": sum(item["status"] == "extracted" for item in manifest),
         "chunk_count": len(all_chunks),
@@ -215,6 +253,7 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
                 "size": item["size"],
                 "status": item["status"],
                 "chunk_count": item["chunk_count"],
+                "character_count": item["character_count"],
                 "error": item["error"],
             }
             for item in manifest
@@ -232,7 +271,15 @@ def build_index(corpus_dir: Path, index_dir: Path, max_file_bytes: int) -> dict:
 
 
 def index_status(index_dir: Path) -> dict:
-    empty = {"file_count": 0, "extracted_files": 0, "chunk_count": 0, "files": [], "issues": []}
+    empty = {
+        "index_version": INDEX_FORMAT_VERSION,
+        "full_text_max_chars": FULL_TEXT_DOCUMENT_MAX_CHARS,
+        "file_count": 0,
+        "extracted_files": 0,
+        "chunk_count": 0,
+        "files": [],
+        "issues": [],
+    }
     report = index_dir / "report.json"
     if not report.is_file():
         return empty
@@ -258,6 +305,7 @@ def index_status(index_dir: Path) -> dict:
                                     "size": item.get("size", 0),
                                     "status": item.get("status", "unknown"),
                                     "chunk_count": item.get("chunk_count", 0),
+                                    "character_count": item.get("character_count", 0),
                                     "error": item.get("error"),
                                 }
                             )
@@ -275,7 +323,13 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
-def search_index(index_dir: Path, query: str, top: int = 8) -> list[dict]:
+def search_index(
+    index_dir: Path,
+    query: str,
+    top: int = 8,
+    full_text_max_chars: int = FULL_TEXT_DOCUMENT_MAX_CHARS,
+    full_text_total_chars: int = FULL_TEXT_REQUEST_MAX_CHARS,
+) -> list[dict]:
     chunk_file = index_dir / "chunks.jsonl"
     if not chunk_file.is_file():
         return []
@@ -313,10 +367,52 @@ def search_index(index_dir: Path, query: str, top: int = 8) -> list[dict]:
         if score:
             ranked.append((score, item))
     ranked.sort(key=lambda pair: pair[0], reverse=True)
+    documents: dict[str, dict] = {}
+    document_file = index_dir / "documents.jsonl"
+    if document_file.is_file():
+        with document_file.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                source_id = str(item.get("source_id", ""))
+                if source_id and isinstance(item.get("text"), str):
+                    documents[source_id] = item
     results: list[dict] = []
-    for score, item in ranked[: max(1, top)]:
-        result = dict(item)
-        result["score"] = round(score, 4)
-        result["text"] = result["text"][:2200]
-        results.append(result)
+    full_text_sources: set[str] = set()
+    full_text_chars = 0
+    for score, item in ranked:
+        source_id = str(item.get("source_id", ""))
+        if source_id in full_text_sources:
+            continue
+        document = documents.get(source_id)
+        document_chars = int(document.get("character_count", 0)) if document else 0
+        document_text = str(document.get("text", "")) if document else ""
+        can_use_full_text = (
+            bool(document_text)
+            and document_chars <= max(0, full_text_max_chars)
+            and full_text_chars + len(document_text) <= max(0, full_text_total_chars)
+        )
+        if can_use_full_text:
+            result = {
+                "source_id": source_id,
+                "path": document["path"],
+                "extension": document.get("extension", item.get("extension", "")),
+                "chunk": 0,
+                "locator": document.get("locator", "全文"),
+                "text": document_text,
+                "content_mode": "full",
+                "score": round(score, 4),
+            }
+            full_text_sources.add(source_id)
+            full_text_chars += len(document_text)
+            results.append(result)
+        else:
+            result = dict(item)
+            result["score"] = round(score, 4)
+            result["text"] = result["text"][:2200]
+            result["content_mode"] = "excerpt"
+            results.append(result)
+        if len(results) >= max(1, top):
+            break
     return results

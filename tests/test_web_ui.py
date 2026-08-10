@@ -15,6 +15,8 @@ class WebUiStructureTests(unittest.TestCase):
     def test_file_list_and_thinking_summary_are_present(self):
         self.assertIn('id="toggle-corpus-list"', HTML)
         self.assertIn('id="corpus-list"', HTML)
+        self.assertIn("整篇阅读", HTML)
+        self.assertIn("长文按需阅读", HTML)
         self.assertIn("思考了 ${", HTML)
         self.assertIn("message.reasoning.summary", HTML)
 
