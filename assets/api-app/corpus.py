@@ -10,7 +10,7 @@ import re
 import zipfile
 from collections import Counter
 from html.parser import HTMLParser
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterable
 from xml.etree import ElementTree
 
@@ -21,6 +21,8 @@ CJK_RUN = re.compile(r"[\u3400-\u9fff]+")
 INDEX_FORMAT_VERSION = 2
 FULL_TEXT_DOCUMENT_MAX_CHARS = 24_000
 FULL_TEXT_REQUEST_MAX_CHARS = 48_000
+REQUESTED_FULL_TEXT_DOCUMENT_MAX_CHARS = 80_000
+REQUESTED_FULL_TEXT_TOTAL_MAX_CHARS = 120_000
 
 
 class TextHTMLParser(HTMLParser):
@@ -323,13 +325,125 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+def load_documents(index_dir: Path) -> list[dict]:
+    document_file = index_dir / "documents.jsonl"
+    if not document_file.is_file():
+        return []
+    documents: list[dict] = []
+    with document_file.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            if (
+                isinstance(item, dict)
+                and isinstance(item.get("path"), str)
+                and isinstance(item.get("text"), str)
+            ):
+                documents.append(item)
+    return documents
+
+
+def match_requested_documents(index_dir: Path, query: str, select_all: bool = False) -> list[str]:
+    """Return paths explicitly named by the user, or the sole available document."""
+    documents = load_documents(index_dir)
+    if select_all:
+        return [str(item["path"]) for item in documents]
+
+    normalized_query = query.casefold().replace("\\", "/")
+    direct_matches: list[str] = []
+    for item in documents:
+        path = str(item["path"])
+        normalized_path = path.casefold().replace("\\", "/")
+        name = PurePosixPath(normalized_path).name
+        stem = PurePosixPath(normalized_path).stem
+        if any(
+            len(value) >= 2 and value in normalized_query
+            for value in (normalized_path, name, stem)
+        ):
+            direct_matches.append(path)
+    if direct_matches:
+        return direct_matches
+
+    bracketed_names = [value.strip() for value in re.findall(r"《([^》]+)》", query) if value.strip()]
+    requested = [value.casefold().replace("\\", "/") for value in bracketed_names]
+    matches: list[str] = []
+    for item in documents:
+        path = str(item["path"])
+        normalized_path = path.casefold().replace("\\", "/")
+        name = Path(path).name.casefold()
+        stem = Path(path).stem.casefold()
+        candidates = {normalized_path, name, stem}
+        if requested:
+            matched = any(
+                value in candidates or any(value == Path(candidate).stem.casefold() for candidate in candidates)
+                for value in requested
+            )
+        else:
+            matched = any(len(value) >= 2 and value in normalized_query for value in candidates)
+        if matched:
+            matches.append(path)
+    if matches:
+        return matches
+    if not requested and len(documents) == 1:
+        return [str(documents[0]["path"])]
+    return []
+
+
 def search_index(
     index_dir: Path,
     query: str,
     top: int = 8,
     full_text_max_chars: int = FULL_TEXT_DOCUMENT_MAX_CHARS,
     full_text_total_chars: int = FULL_TEXT_REQUEST_MAX_CHARS,
+    force_full_paths: Iterable[str] | None = None,
+    excerpts_only: bool = False,
+    requested_full_document_max_chars: int = REQUESTED_FULL_TEXT_DOCUMENT_MAX_CHARS,
+    requested_full_total_chars: int = REQUESTED_FULL_TEXT_TOTAL_MAX_CHARS,
+    restrict_paths: Iterable[str] | None = None,
 ) -> list[dict]:
+    documents_list = load_documents(index_dir)
+    documents_by_id = {
+        str(item.get("source_id", "")): item
+        for item in documents_list
+        if str(item.get("source_id", ""))
+    }
+    requested_paths = {
+        str(path).casefold().replace("\\", "/") for path in (force_full_paths or [])
+    }
+    if requested_paths:
+        selected = [
+            item
+            for item in documents_list
+            if str(item["path"]).casefold().replace("\\", "/") in requested_paths
+        ]
+        missing = requested_paths - {
+            str(item["path"]).casefold().replace("\\", "/") for item in selected
+        }
+        if missing:
+            raise ValueError(f"文献库中未找到：{', '.join(sorted(missing))}")
+        total_chars = sum(len(str(item["text"])) for item in selected)
+        for item in selected:
+            if len(str(item["text"])) > max(0, requested_full_document_max_chars):
+                raise ValueError(
+                    f"《{item['path']}》全文超出本次可处理范围。请分篇、分章节提问，或改为只查相关部分。"
+                )
+        if total_chars > max(0, requested_full_total_chars):
+            raise ValueError("所选文献全文总量超出本次可处理范围。请减少文献数量或分次提问。")
+        return [
+            {
+                "source_id": str(item.get("source_id", "")),
+                "path": item["path"],
+                "extension": item.get("extension", ""),
+                "chunk": 0,
+                "locator": item.get("locator", "全文"),
+                "text": item["text"],
+                "content_mode": "full",
+                "score": 0.0,
+            }
+            for item in selected
+        ]
+
     chunk_file = index_dir / "chunks.jsonl"
     if not chunk_file.is_file():
         return []
@@ -340,6 +454,16 @@ def search_index(
                 item = json.loads(line)
                 if isinstance(item.get("text"), str):
                     chunks.append(item)
+    restricted_paths = [
+        str(path).casefold().replace("\\", "/") for path in (restrict_paths or [])
+    ]
+    if restricted_paths:
+        restricted_set = set(restricted_paths)
+        chunks = [
+            item
+            for item in chunks
+            if str(item.get("path", "")).casefold().replace("\\", "/") in restricted_set
+        ]
     query_tokens = tokenize(query)
     if not chunks or not query_tokens:
         return []
@@ -367,17 +491,42 @@ def search_index(
         if score:
             ranked.append((score, item))
     ranked.sort(key=lambda pair: pair[0], reverse=True)
-    documents: dict[str, dict] = {}
-    document_file = index_dir / "documents.jsonl"
-    if document_file.is_file():
-        with document_file.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                item = json.loads(line)
-                source_id = str(item.get("source_id", ""))
-                if source_id and isinstance(item.get("text"), str):
-                    documents[source_id] = item
+    if restricted_paths:
+        primary: list[tuple[float, dict]] = []
+        primary_keys: set[tuple[str, int]] = set()
+        for requested_path in restricted_paths:
+            candidate = next(
+                (
+                    pair
+                    for pair in ranked
+                    if str(pair[1].get("path", "")).casefold().replace("\\", "/")
+                    == requested_path
+                ),
+                None,
+            )
+            if candidate is None:
+                fallback = next(
+                    (
+                        item
+                        for item in chunks
+                        if str(item.get("path", "")).casefold().replace("\\", "/")
+                        == requested_path
+                    ),
+                    None,
+                )
+                if fallback is not None:
+                    candidate = (0.0, fallback)
+            if candidate is not None:
+                key = (str(candidate[1].get("source_id", "")), int(candidate[1].get("chunk", 0)))
+                if key not in primary_keys:
+                    primary.append(candidate)
+                    primary_keys.add(key)
+        ranked = primary + [
+            pair
+            for pair in ranked
+            if (str(pair[1].get("source_id", "")), int(pair[1].get("chunk", 0)))
+            not in primary_keys
+        ]
     results: list[dict] = []
     full_text_sources: set[str] = set()
     full_text_chars = 0
@@ -385,11 +534,12 @@ def search_index(
         source_id = str(item.get("source_id", ""))
         if source_id in full_text_sources:
             continue
-        document = documents.get(source_id)
+        document = documents_by_id.get(source_id)
         document_chars = int(document.get("character_count", 0)) if document else 0
         document_text = str(document.get("text", "")) if document else ""
         can_use_full_text = (
-            bool(document_text)
+            not excerpts_only
+            and bool(document_text)
             and document_chars <= max(0, full_text_max_chars)
             and full_text_chars + len(document_text) <= max(0, full_text_total_chars)
         )
@@ -413,6 +563,6 @@ def search_index(
             result["text"] = result["text"][:2200]
             result["content_mode"] = "excerpt"
             results.append(result)
-        if len(results) >= max(1, top):
+        if len(results) >= max(1, top, len(restricted_paths)):
             break
     return results

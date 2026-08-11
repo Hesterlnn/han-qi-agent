@@ -168,7 +168,10 @@ def parse_table(lines: list[str], start: int) -> tuple[list[list[str]], int]:
     return rows, index
 
 
-def markdown_to_body(markdown: str) -> str:
+def markdown_to_body(
+    markdown: str,
+    subtitle: str = "角色对话、情境推演、现代任事与文献研究",
+) -> str:
     lines = markdown.splitlines()
     output: list[str] = []
     index = 0
@@ -212,7 +215,7 @@ def markdown_to_body(markdown: str) -> str:
                 output.append(paragraph(text, style="Title", align="center", after=220))
                 output.append(
                     paragraph(
-                        "角色对话、情境推演、现代任事与文献研究",
+                        subtitle,
                         style="Subtitle",
                         align="center",
                         after=260,
@@ -339,9 +342,9 @@ def document_xml(body: str) -> str:
 <w:cols w:space="425"/><w:docGrid w:linePitch="312"/></w:sectPr></w:body></w:document>'''
 
 
-def header_xml() -> str:
+def header_xml(title: str) -> str:
     return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="{NS}"><w:p><w:pPr><w:jc w:val="right"/><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="4" w:color="D8CAB7"/></w:pBdr></w:pPr><w:r><w:rPr><w:color w:val="887A68"/><w:sz w:val="18"/></w:rPr><w:t>韩琦智能体 V1.0 使用说明</w:t></w:r></w:p></w:hdr>'''
+<w:hdr xmlns:w="{NS}"><w:p><w:pPr><w:jc w:val="right"/><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="4" w:color="D8CAB7"/></w:pBdr></w:pPr><w:r><w:rPr><w:color w:val="887A68"/><w:sz w:val="18"/></w:rPr><w:t>{escape(title)}</w:t></w:r></w:p></w:hdr>'''
 
 
 def footer_xml() -> str:
@@ -349,8 +352,17 @@ def footer_xml() -> str:
 <w:ftr xmlns:w="{NS}"><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:color w:val="887A68"/><w:sz w:val="18"/></w:rPr><w:t>— </w:t></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r><w:r><w:t> —</w:t></w:r></w:p></w:ftr>'''
 
 
-def build_docx(source: Path, output: Path) -> None:
-    body = markdown_to_body(source.read_text(encoding="utf-8"))
+def build_docx(
+    source: Path,
+    output: Path,
+    *,
+    title: str | None = None,
+    subtitle: str = "角色对话、情境推演、现代任事与文献研究",
+) -> None:
+    markdown = source.read_text(encoding="utf-8")
+    title_match = re.search(r"^#\s+(.+)$", markdown, re.MULTILINE)
+    document_title = title or (title_match.group(1).strip() if title_match else source.stem)
+    body = markdown_to_body(markdown, subtitle)
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     files = {
         "[Content_Types].xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -360,10 +372,10 @@ def build_docx(source: Path, output: Path) -> None:
         "word/styles.xml": styles_xml(),
         "word/settings.xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="{NS}"><w:zoom w:percent="100"/><w:updateFields w:val="true"/><w:defaultTabStop w:val="420"/><w:characterSpacingControl w:val="doNotCompress"/></w:settings>''',
         "word/fontTable.xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:fonts xmlns:w="{NS}"><w:font w:name="Microsoft YaHei"/><w:font w:name="STZhongsong"/><w:font w:name="Aptos"/><w:font w:name="Consolas"/></w:fonts>''',
-        "word/header1.xml": header_xml(),
+        "word/header1.xml": header_xml(document_title),
         "word/footer1.xml": footer_xml(),
         "word/_rels/document.xml.rels": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/><Relationship Id="rIdFonts" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/></Relationships>''',
-        "docProps/core.xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>韩琦智能体 V1.0 使用说明</dc:title><dc:subject>角色智能体使用、部署与文献研究</dc:subject><dc:creator>韩琦智能体项目</dc:creator><cp:keywords>韩琦; 智能体; 角色扮演; 文献研究</cp:keywords><dcterms:created xsi:type="dcterms:W3CDTF">{now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">{now}</dcterms:modified></cp:coreProperties>''',
+        "docProps/core.xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>{escape(document_title)}</dc:title><dc:subject>韩琦智能体项目文档</dc:subject><dc:creator>韩琦智能体项目</dc:creator><cp:keywords>韩琦; 智能体; 文献研究; 自动测试</cp:keywords><dcterms:created xsi:type="dcterms:W3CDTF">{now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">{now}</dcterms:modified></cp:coreProperties>''',
         "docProps/app.xml": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Han Qi Agent Documentation Builder</Application><AppVersion>2.0</AppVersion></Properties>''',
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -376,6 +388,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--title")
+    parser.add_argument(
+        "--subtitle",
+        default="角色对话、情境推演、现代任事与文献研究",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     source = args.source.resolve()
@@ -384,7 +401,7 @@ def main() -> int:
         raise SystemExit(f"Source does not exist: {source}")
     if output.exists() and not args.force:
         raise SystemExit(f"Output already exists: {output}. Pass --force to replace it.")
-    build_docx(source, output)
+    build_docx(source, output, title=args.title, subtitle=args.subtitle)
     print(f"Built {output} ({output.stat().st_size} bytes)")
     return 0
 

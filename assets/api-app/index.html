@@ -17,6 +17,9 @@
     .library { padding:12px; }
     .library-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
     .library-row strong { margin-right:auto; }
+    .icon-button { flex:0 0 40px; width:40px; height:40px; padding:0; display:inline-flex; align-items:center; justify-content:center; line-height:0; vertical-align:middle; }
+    .icon-button svg { display:block; width:22px; height:22px; margin:0; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .icon-button[hidden] { display:none; }
     .library-status,.library-hint { margin:7px 0 0; color:#6f6253; font-size:13px; }
     .library-files { margin-top:10px; max-height:220px; overflow:auto; border-top:1px solid #e5d8c6; padding-top:7px; }
     .library-files[hidden] { display:none; }
@@ -60,6 +63,8 @@
     .thinking.pending summary::after { content:""; display:inline-block; width:8px; height:8px; margin-left:7px; border-radius:50%; background:var(--red); animation:pulse 1s ease-in-out infinite; }
     @keyframes pulse { 50% { opacity:.25; transform:scale(.75); } }
     .retrieval { margin:6px 0 0; color:#6f6253; font-size:12px; }
+    .retrieval summary { cursor:pointer; user-select:none; }
+    .retrieval-body { margin-top:4px; padding-left:2px; }
     .retrieval a { color:#71342f; }
     .composer { padding:12px; display:grid; grid-template-columns:1fr auto; gap:10px; }
     textarea { width:100%; min-height:76px; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:10px; background:white; color:var(--ink); }
@@ -80,19 +85,22 @@
     <label class="check"><input id="use-corpus" type="checkbox" checked>使用本地文献库</label>
     <label class="check" id="web-search-label"><input id="web-search" type="checkbox">联网检索</label>
     <button id="clear" type="button">清空会话</button>
-    <p class="research-note" id="research-note" hidden>考据模式会在启用时检索下方的本地文献库。联网检索默认关闭，打开“联网检索”开关后持续生效，直到手动关闭或刷新页面。</p>
+    <p class="research-note" id="research-note" hidden>考据模式会使用已启用的本地文献库；需要查找网络信息时，请打开“联网检索”。</p>
   </section>
   <section class="library">
     <div class="library-row">
       <strong>本地文献库</strong>
-      <label class="file-button">添加文件<input id="corpus-files" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.docx,.pdf"></label>
-      <label class="file-button">添加文件夹<input id="corpus-folder" type="file" multiple webkitdirectory directory></label>
-      <button class="secondary" id="clear-corpus" type="button">清空文献库</button>
+      <button class="secondary icon-button" id="browse-corpus-folder" type="button" aria-label="选择文献库文件夹" title="选择文献库文件夹">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h6l2 2h9v9.5a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 8V5A1.5 1.5 0 0 1 5 3.5h4l2 2h8A1.5 1.5 0 0 1 20.5 7v2.5"/></svg>
+      </button>
+      <button class="secondary" id="refresh-corpus" type="button">刷新</button>
+      <label class="file-button">上传文件<input id="corpus-files" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.docx,.pdf"></label>
+      <button class="secondary" id="clear-corpus" type="button">移除文献库</button>
       <button class="secondary" id="toggle-corpus-list" type="button" disabled>查看文件（0）</button>
     </div>
     <p class="library-status" id="corpus-status">正在读取文献库状态……</p>
     <div class="library-files" id="corpus-list" hidden></div>
-    <p class="library-hint">支持TXT、Markdown、CSV、JSON、HTML、DOCX和PDF。文献保存在本机；篇幅适中的相关文献会整篇发送给当前模型，较长文献只发送与问题相关的部分。</p>
+    <p class="library-hint">选择文件夹或上传少量文件，待处理完成后即可提问；文件有变化时点击“刷新”。可在问题中写“请阅读全文《文件名》”或“只查相关部分”。单个文件上限50 MB，单次上传总量上限200 MB。</p>
   </section>
   <section class="chat" id="chat"><div class="empty">可以闲谈，可以设一段情境，也可以把一件事交给他。</div></section>
   <form class="composer" id="form">
@@ -112,8 +120,9 @@
   const webSearchLabel = document.querySelector('#web-search-label');
   const researchNote = document.querySelector('#research-note');
   const corpusStatus = document.querySelector('#corpus-status');
+  const browseCorpusFolder = document.querySelector('#browse-corpus-folder');
+  const refreshCorpus = document.querySelector('#refresh-corpus');
   const corpusFiles = document.querySelector('#corpus-files');
-  const corpusFolder = document.querySelector('#corpus-folder');
   const clearCorpus = document.querySelector('#clear-corpus');
   const toggleCorpusList = document.querySelector('#toggle-corpus-list');
   const corpusList = document.querySelector('#corpus-list');
@@ -284,24 +293,34 @@
       if (message.role === 'assistant') renderRichText(bubble, message.content || '');
       else bubble.textContent = message.content;
       if (!message.pending) wrapper.appendChild(bubble);
-      const summary = retrievalSummary(message.retrieval);
-      if (summary.local.length || summary.web.length) {
-        const meta = document.createElement('div');
+      const referenceSummary = retrievalSummary(message.retrieval);
+      if (message.mode === '考据' && (referenceSummary.local.length || referenceSummary.web.length)) {
+        const meta = document.createElement('details');
         meta.className = 'retrieval';
-        if (summary.local.length) meta.append(document.createTextNode(`参考文献：${summary.local.map(item => item.name || item.path).join('；')}`));
-        if (summary.web.length) {
-          if (summary.local.length) meta.append(document.createElement('br'));
-          meta.append(document.createTextNode('联网来源：'));
-          summary.web.forEach((item, index) => {
-            if (index) meta.append(document.createTextNode('；'));
+        const referenceCount = referenceSummary.local.length + referenceSummary.web.length;
+        meta.open = referenceCount <= 3;
+        const heading = document.createElement('summary');
+        const labels = [];
+        if (referenceSummary.local.length) labels.push(`参考文献 ${referenceSummary.local.length} 篇`);
+        if (referenceSummary.web.length) labels.push(`联网来源 ${referenceSummary.web.length} 条`);
+        heading.textContent = labels.join('，');
+        meta.appendChild(heading);
+        const referenceBody = document.createElement('div');
+        referenceBody.className = 'retrieval-body';
+        if (referenceSummary.local.length) referenceBody.append(document.createTextNode(referenceSummary.local.map(item => item.name || item.path).join('；')));
+        if (referenceSummary.web.length) {
+          if (referenceSummary.local.length) referenceBody.append(document.createElement('br'));
+          referenceSummary.web.forEach((item, index) => {
+            if (index) referenceBody.append(document.createTextNode('；'));
             const link = document.createElement('a');
             link.href = item.url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.textContent = item.title || item.url;
-            meta.append(link);
+            referenceBody.append(link);
           });
         }
+        meta.appendChild(referenceBody);
         wrapper.appendChild(meta);
       }
       row.appendChild(wrapper);
@@ -310,12 +329,19 @@
     chat.scrollTop = chat.scrollHeight;
   }
 
+  let currentCorpusMode = 'uploads';
+
   function showCorpusStatus(report, prefix='') {
     const issues = report?.issues?.length || 0;
     const files = Array.isArray(report?.files) ? report.files : [];
     const fullTextLimit = Number(report?.full_text_max_chars) || 24000;
-    corpusStatus.textContent = `${prefix}${report?.file_count || 0} 个文件，${report?.extracted_files || 0} 个可读取${issues ? `，${issues} 个需要处理` : ''}`;
+    currentCorpusMode = report?.source_mode || 'uploads';
+    const usingFolder = currentCorpusMode === 'folder';
+    browseCorpusFolder.hidden = report?.folder_selection_available === false;
+    const sourceLabel = usingFolder ? `文件夹：${report.source_path || '未知'}` : '网页上传文献';
+    corpusStatus.textContent = `${prefix}${sourceLabel} · ${report?.file_count || 0} 个文件，${report?.extracted_files || 0} 个可读取${issues ? `，${issues} 个需要处理` : ''}`;
     corpusStatus.title = issues ? report.issues.map(item => `${item.path}: ${item.error || item.status}`).join('\n') : '';
+    clearCorpus.textContent = usingFolder ? '移除文献库' : '清空上传文献';
     toggleCorpusList.disabled = files.length === 0;
     toggleCorpusList.textContent = `查看文件（${files.length}）`;
     corpusList.replaceChildren();
@@ -330,7 +356,7 @@
       meta.className = 'library-file-meta';
       const labels = {extracted:'可用',empty:'无可读取文字',error:'读取失败',skipped:'已跳过',unsupported:'不支持'};
       const readingMode = file.status === 'extracted'
-        ? (Number(file.character_count) <= fullTextLimit ? '整篇阅读' : '长文按需阅读')
+        ? (Number(file.character_count) <= fullTextLimit ? '默认整篇阅读' : '默认按需阅读')
         : '';
       meta.textContent = `${labels[file.status] || file.status || '未知'}${readingMode ? ` · ${readingMode}` : ''} · ${formatBytes(file.size || 0)}`;
       row.append(name, meta);
@@ -368,8 +394,12 @@
   async function importCorpus(fileList) {
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
+    if (currentCorpusMode === 'folder' && !confirm('上传文件会切换到网页管理的文献库，不会删除原文件夹。是否继续？')) {
+      corpusFiles.value = '';
+      return;
+    }
     corpusStatus.textContent = `正在添加并整理：${selected.length} 个文件……`;
-    corpusFiles.disabled = corpusFolder.disabled = clearCorpus.disabled = true;
+    corpusFiles.disabled = clearCorpus.disabled = browseCorpusFolder.disabled = refreshCorpus.disabled = true;
     try {
       const files = [];
       for (const file of selected) {
@@ -384,21 +414,55 @@
     } catch (error) {
       corpusStatus.textContent = `[导入错误] ${error.message}`;
     } finally {
-      corpusFiles.value = corpusFolder.value = '';
-      corpusFiles.disabled = corpusFolder.disabled = clearCorpus.disabled = false;
+      corpusFiles.value = '';
+      corpusFiles.disabled = clearCorpus.disabled = browseCorpusFolder.disabled = refreshCorpus.disabled = false;
     }
   }
 
   corpusFiles.addEventListener('change', () => importCorpus(corpusFiles.files));
-  corpusFolder.addEventListener('change', () => importCorpus(corpusFolder.files));
+  browseCorpusFolder.addEventListener('click', async () => {
+    corpusStatus.textContent = '请在系统窗口中选择文献库文件夹……';
+    browseCorpusFolder.disabled = refreshCorpus.disabled = clearCorpus.disabled = true;
+    try {
+      const response = await fetch('/api/corpus/browse', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '无法打开文件夹选择窗口');
+      if (data.cancelled) { showCorpusStatus(data); return; }
+      corpusStatus.textContent = '正在处理文件夹，文件较多时可能需要一些时间……';
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const processResponse = await fetch('/api/corpus/folder', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:data.selected_path})});
+      const processData = await processResponse.json();
+      if (!processResponse.ok) throw new Error(processData.error || '无法处理所选文件夹');
+      showCorpusStatus(processData, '已使用。');
+      useCorpus.checked = true;
+    } catch (error) {
+      corpusStatus.textContent = `[文件夹错误] ${error.message}`;
+    } finally { browseCorpusFolder.disabled = refreshCorpus.disabled = clearCorpus.disabled = false; }
+  });
+  refreshCorpus.addEventListener('click', async () => {
+    corpusStatus.textContent = '正在刷新文献库……';
+    refreshCorpus.disabled = browseCorpusFolder.disabled = clearCorpus.disabled = true;
+    try {
+      const response = await fetch('/api/corpus/reindex', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '刷新失败');
+      showCorpusStatus(data, '已刷新。');
+    } catch (error) {
+      corpusStatus.textContent = `[刷新错误] ${error.message}`;
+    } finally { refreshCorpus.disabled = browseCorpusFolder.disabled = clearCorpus.disabled = false; }
+  });
   clearCorpus.addEventListener('click', async () => {
-    if (!confirm('确定清空本机保存的全部文献吗？此操作不能撤销。')) return;
+    const wasFolder = currentCorpusMode === 'folder';
+    const prompt = currentCorpusMode === 'folder'
+      ? '确定移除当前文件夹文献库吗？原文件不会被删除。'
+      : '确定删除网页保存的全部上传文献吗？此操作不能撤销。';
+    if (!confirm(prompt)) return;
     clearCorpus.disabled = true;
     try {
       const response = await fetch('/api/corpus/clear', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '清空失败');
-      showCorpusStatus(data, '已清空。');
+      showCorpusStatus(data, wasFolder ? '已移除。' : '已清空。');
     } catch (error) {
       corpusStatus.textContent = `[清空错误] ${error.message}`;
     } finally { clearCorpus.disabled = false; }
@@ -408,13 +472,14 @@
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.querySelector('#form').requestSubmit(); } });
   document.querySelector('#form').onsubmit = async event => {
     event.preventDefault(); const content=input.value.trim(); if (!content) return;
+    const requestMode = mode.value;
     messages.push({role:'user',content});
     const requestMessages = messages.filter(message => !message.pending).map(message => ({role:message.role,content:message.content}));
-    const pending = {role:'assistant',content:'',pending:true};
+    const pending = {role:'assistant',content:'',pending:true,mode:requestMode};
     messages.push(pending); input.value=''; render(); send.disabled=true; send.textContent='思量中…';
     const startedAt = performance.now();
     try {
-      const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:requestMessages,mode:mode.value,world:world.value,use_corpus:useCorpus.checked,web_search:webSearch.checked})});
+      const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:requestMessages,mode:requestMode,world:world.value,use_corpus:useCorpus.checked,web_search:webSearch.checked})});
       const data=await response.json(); if (!response.ok) throw new Error(data.error || '请求失败');
       Object.assign(pending,{content:data.content,retrieval:data.retrieval,reasoning:data.reasoning,pending:false,elapsed:(performance.now()-startedAt)/1000});
     } catch (error) { Object.assign(pending,{content:`[连接错误] ${error.message}`,pending:false,elapsed:(performance.now()-startedAt)/1000}); }

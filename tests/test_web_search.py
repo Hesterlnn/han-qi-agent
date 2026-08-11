@@ -58,7 +58,18 @@ class NativeWebSearchTests(unittest.TestCase):
                     "summary": [{"type": "summary_text", "text": "先核对官方资料，再整理结论。"}],
                     "content": [{"type": "reasoning_text", "text": "不应展示的原始推理"}],
                 },
-                {"type": "web_search_call", "status": "completed"},
+                {
+                    "type": "web_search_call",
+                    "status": "completed",
+                    "action": {
+                        "sources": [
+                            {
+                                "title": "DeepSeek API Docs",
+                                "url": "https://api-docs.deepseek.com/guides/responses_api/",
+                            }
+                        ]
+                    },
+                },
                 {
                     "type": "message",
                     "content": [
@@ -96,6 +107,8 @@ class NativeWebSearchTests(unittest.TestCase):
         request_payload = json.loads(request.data)
         self.assertEqual(request_payload["tools"], [{"type": "web_search"}])
         self.assertEqual(request_payload["tool_choice"], {"type": "web_search"})
+        self.assertEqual(request_payload["include"], ["web_search_call.action.sources"])
+        self.assertIn("小标题必须使用 # 标题语法", request_payload["instructions"])
         self.assertEqual(answer, "已完成联网核实。")
         self.assertEqual(reasoning_summary, "先核对官方资料，再整理结论。")
         self.assertNotIn("不应展示", reasoning_summary)
@@ -154,15 +167,55 @@ class NativeWebSearchTests(unittest.TestCase):
                 {"path": "年谱.pdf", "chunk": 1},
             ]
         )
-        cited = server.cited_local_sources("根据《安阳集》的相关记载……（史料/安阳集.md）", retrieved)
+        cited = server.cited_local_sources("根据《安阳集》的相关记载……", retrieved)
         self.assertEqual(retrieved, [{"path": "史料/安阳集.md"}, {"path": "年谱.pdf"}])
         self.assertEqual(cited, [{"path": "史料/安阳集.md", "name": "安阳集.md"}])
+
+    def test_local_number_markers_are_mapped_back_to_unique_files(self):
+        local_results = [
+            {"path": "甲论文.pdf", "chunk": 1},
+            {"path": "甲论文.pdf", "chunk": 2},
+            {"path": "乙论文.pdf", "chunk": 1},
+        ]
+
+        cited = server.cited_local_sources("甲结论[LOCAL 2]，乙结论[LOCAL 3]。", local_results)
+
+        self.assertEqual(
+            cited,
+            [
+                {"path": "甲论文.pdf", "name": "甲论文.pdf"},
+                {"path": "乙论文.pdf", "name": "乙论文.pdf"},
+            ],
+        )
+
+    def test_local_number_markers_may_include_page_locators(self):
+        local_results = [{"path": "甲论文.pdf"}]
+
+        cited = server.cited_local_sources("结论[LOCAL 1，第2—3页]。", local_results)
+
+        self.assertEqual(cited, [{"path": "甲论文.pdf", "name": "甲论文.pdf"}])
 
     def test_fallback_reasoning_describes_observable_steps(self):
         reasoning = server.reasoning_for_display("", [{"path": "安阳集.md"}], True)
         self.assertEqual(reasoning["kind"], "activity_summary")
         self.assertIn("已查阅 1 份本地文献", reasoning["summary"])
         self.assertIn("已完成联网检索", reasoning["summary"])
+
+    def test_dialogue_can_control_document_reading_policy(self):
+        self.assertEqual(server.corpus_reading_policy("请阅读全文《某论文》后回答"), "full")
+        self.assertEqual(server.corpus_reading_policy("完整读取这份材料"), "full")
+        self.assertEqual(server.corpus_reading_policy("只查相关部分，不要阅读全文"), "excerpts")
+        self.assertEqual(server.corpus_reading_policy("这篇论文如何评价韩琦"), "auto")
+
+    def test_fallback_reasoning_confirms_full_text_reading(self):
+        reasoning = server.reasoning_for_display(
+            "",
+            [{"path": "甲.md"}, {"path": "乙.md"}],
+            False,
+            full_text_count=1,
+        )
+        self.assertIn("已完整读取 1 份本地文献", reasoning["summary"])
+        self.assertIn("另查阅 1 份本地文献的相关部分", reasoning["summary"])
 
 
 if __name__ == "__main__":
