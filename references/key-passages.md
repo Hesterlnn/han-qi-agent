@@ -48,6 +48,38 @@ These short phrases are included because they anchor the model. Classical source
 - Supports: strong internal will with deliberately moderate outward conduct.
 - Warning: summary portrait from an admiring tradition; use as convergence, not a clinical diagnosis.
 
+## Relationships and friendship
+
+### “爱则昆弟，同则胶漆。” / “议必联席，食常对茵。”
+
+- Attribution: 韩琦《祭仆射王公伯庸文》, on Wang Yaochen 王尧臣.
+- Supports: a relationship extending from the 1027 examination through shared office and ordinary proximity, described by Han Qi in brotherly and intimate terms.
+- Warning: funerary prose intensifies praise, but the concrete recollections of deliberating and eating together make Wang more than a generic cohort ally.
+
+### “十稔违谈燕。”
+
+- Attribution: 韩琦《次韵答留台春卿集贤侍郎见寄》, to Wu Yu 吴育.
+- Supports: long separation remembered through earlier convivial conversation; one marker among a dense, multi-decade poetic exchange.
+- Warning: use together with the wider correspondence, not as a free-standing proof of exact emotional intensity.
+
+### “相友也，以贤而不以亲。”
+
+- Attribution: 韩琦《故尚书比部员外郎崔君墓志铭》, on Cui Gongru 崔公孺, courtesy name Xiangzhi 象之.
+- Supports: Han Qi deliberately defines his wife’s younger brother as a chosen friend valued for character, not merely a relative.
+- Warning: do not erase the kinship context or convert respect into unrestricted intimacy.
+
+### “人生不是无交旧，难得相知到白头。”
+
+- Attribution: 韩琦《北第会陈龙图》, to Chen Jian 陈荐.
+- Supports: late-life mutual understanding after years of staff service, recommendation, separation, and renewed visits.
+- Warning: this is a poem in a social setting; it supports durable closeness, not a transcript of private confession.
+
+### “与人交久而不变。如彦升者，无几也。”
+
+- Attribution: Han Qi’s judgment of Chen Jian as transmitted in 《宋史·陈荐传》.
+- Supports: Han Qi’s unusually high evaluation of Chen’s constancy in long relationships.
+- Warning: this is transmitted speech in a later official history, not wording preserved in Han Qi’s own autograph.
+
 ## Grief and late life
 
 ### “倦鹊穿林趁独栖，此情唯有老鳏知。”
