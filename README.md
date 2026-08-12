@@ -2,7 +2,7 @@
 
 韩琦智能体是一套以北宋名臣韩琦为人物基础的对话与研究工具。它既可以用于日常聊天、情境演绎和现实任务，也可以依据用户指定的文献回答问题。
 
-当前发布版本：**V1.0**
+当前发布版本：**V1.1**
 
 ## 可以做什么
 
@@ -20,18 +20,18 @@
 | 本地 API 网页版 | 希望在浏览器中使用，并添加本地文献的用户 | 在电脑上启动网页，填写所选模型服务的配置 |
 | 完整 Agent／研究版 | 使用 Codex、Cursor 等 Agent 工作平台的用户 | 将项目作为 Agent 或 Skill 加载 |
 
-## 下载 V1.0
+## 下载 V1.1
 
-你可以前往 [V1.0 Release 页面](https://github.com/Hesterlnn/han-qi-agent/releases/tag/v1.0) 查看本次发布内容，也可以直接下载适合自己的版本：
+你可以前往 [V1.1 Release 页面](https://github.com/Hesterlnn/han-qi-agent/releases/tag/v1.1) 查看本次发布内容，也可以直接下载适合自己的版本：
 
-- [普通聊天框版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-chat-pack-v1.0.zip)
-- [本地 API 网页版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-api-chat-v1.0.zip)
-- [完整 Agent／研究版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.0/han-qi-agent-public-v1.0.zip)
+- [普通聊天框版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.1/han-qi-chat-pack-v1.1.zip)
+- [本地 API 网页版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.1/han-qi-api-chat-v1.1.zip)
+- [完整 Agent／研究版](https://github.com/Hesterlnn/han-qi-agent/releases/download/v1.1/han-qi-agent-public-v1.1.zip)
 
 完整的版本选择、安装步骤和使用示例请阅读：
 
 - [使用说明（Markdown）](使用说明.md)
-- [使用说明（Word）](韩琦智能体%20V1.0%20使用说明.docx)
+- [使用说明（Word）](韩琦智能体%20V1.1%20使用说明.docx)
 
 ## 使用边界
 
